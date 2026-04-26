@@ -124,6 +124,26 @@ make exec CMD="outcall bridge up"     # re-apply rules
 # agent is locked down again
 ```
 
+## Rule egress modes (proxy vs direct_ip)
+
+Outcall rules can explicitly choose egress style for DNS allow entries:
+
+- `egress.mode: proxy` (recommended): no L3/L4 nftables hole, enforce by HTTP proxy + SNI.
+- `egress.mode: direct_ip`: opens scoped dynamic nftables allows from DNS A-record answers.
+
+Example rule:
+
+```yaml
+version: "1"
+rules:
+  - id: allow-dns-ports-ubuntu-com
+    condition: 'dns.query == "ports.ubuntu.com"'
+    action: allow
+    egress:
+      mode: direct_ip
+      ports: [80, 443]
+```
+
 ## CLI reference
 
 ### outcalld (daemon)
