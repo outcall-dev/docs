@@ -75,7 +75,7 @@ rules:
 ```
 
 - `egress.mode: proxy` (recommended) keeps access at hostname/SNI policy level and avoids broad IP-level holes.
-- `egress.mode: direct_ip` inserts dynamic nftables allows for resolved IPv4 addresses and listed ports.
+ - `egress.mode: direct_ip` inserts dynamic nftables allows for resolved IPv4 and IPv6 addresses and listed ports. IPv4 rules use `ip saddr/daddr`; IPv6 rules use `ip6 saddr/daddr`.
 - If `ports` is omitted in `direct_ip`, Outcall defaults to `[80, 443]`.
 
 - **What it blocks**: resolving hostnames not in the allowlist
