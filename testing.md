@@ -1,230 +1,204 @@
-# Testing Outcall
+# Testing
 
-## Quick reference
+Outcall has three layers of automated tests:
 
-```bash
-make build       # build the Docker image
-make start       # create network + start daemon + apply nftables
-make stop        # stop daemon + remove network
-make status      # bridge status
-make test        # smoke tests (HTTP, ICMP, DNS — all blocked)
-make test-e2e    # full E2E test suite (5 tests)
-make agent       # interactive Alpine shell (from your terminal)
-make logs        # daemon logs
-make exec CMD="outcall bridge down"   # run any command in the daemon
-make clean       # stop + remove Docker image
+| Layer | Where | When you run it |
+|---|---|---|
+| **Unit tests** | `#[cfg(test)] mod tests` blocks inline in `outcalld/src/**/*.rs` | every `cargo test` |
+| **Integration tests** | `outcalld/tests/*.rs` (real syscalls, root + Linux required) | every `cargo test` if you have the caps |
+| **End-to-end harness** | `Makefile` + `scripts/e2e/tests/*.sh` (Docker-based) | `make test` / `make test-e2e` |
+
+This guide walks each layer in order. The first two are what most people
+mean by "tests"; the third is a cross-binary smoke harness used to confirm
+the whole stack lights up on a fresh Docker host.
+
+## Unit tests (`cargo test`)
+
+Run the whole workspace's tests from `application/`:
+
+```sh
+cd application
+cargo test --workspace --all-targets
 ```
 
-## First run
+Today there are **69 unit tests** across the workspace. They cover (most-
+to-least populous):
 
-```bash
-make build       # one-time: builds the outcall-e2e Docker image (~2 min)
-make start       # creates network, starts outcalld, shows bridge status
-make test        # runs smoke tests against an isolated Alpine container
-make stop        # tears everything down
+| File | Tests | What's covered |
+|---|---|---|
+| `outcalld/src/rules/engine.rs` | 16 | CEL evaluation, reload, rule priority, dynamic merge |
+| `outcalld/src/proxy/mod.rs` | 12 | SNI extraction, host:port parsing, request line parsing, CRLF detection |
+| `outcalld/src/network/mod.rs` | 11 | Subnet allocation, CIDR validation |
+| `outcalld/src/agent_api/mod.rs` | 7 | Agent permission-check protocol |
+| `outcalld/src/docker/mod.rs` | 7 | Docker network create/destroy paths |
+| `outcalld/src/dynamic/mod.rs` | 5 | Dynamic rule merge into the active set |
+| `outcall-agent/src/main.rs` | 4 | Tool-invocation parsing (bash, fetch, file_read) |
+| `outcalld/src/dns/mod.rs` | 3 | DNS filter happy path + cache |
+| `outcall-ui/src/lib.rs` | 2 | UI types |
+| `outcalld/src/rules/model.rs` | 1 | Rule YAML deserialization (incl. `egress.mode: direct_ip`) |
+
+Unit tests are pure-Rust. They run on macOS, Linux, and CI without any
+capabilities, sockets, or Docker.
+
+### Running a subset
+
+```sh
+cargo test -p outcalld                     # just the daemon
+cargo test -p outcalld rules::             # just the rule engine module
+cargo test -p outcalld sni_empty           # one named test
+cargo test -- --nocapture                  # show println!/dbg! output
+cargo test -- --test-threads=1             # serial execution (handy when state leaks)
 ```
 
-## Architecture
+### Async tests
 
-All Outcall binaries are Linux-only (netlink, nftables). On macOS, they run
-inside Docker. The Makefile handles this transparently:
+Anything that needs the Tokio runtime uses `#[tokio::test]`:
 
-```
-Your Mac
-├── make start
-│   ├── docker network create outcall-default  (bridge: outcall0)
-│   └── docker run outcall-daemon          (--network host, runs outcalld)
-│       └── outcalld
-│           ├── attaches to outcall0 bridge
-│           ├── applies nftables drop-all rules
-│           └── listens on /run/outcall/host.sock
-│
-├── make test / make agent
-│   └── docker run alpine --network outcall-default
-│       └── all outbound traffic blocked by nftables
-│
-├── make exec CMD="outcall bridge status"
-│   └── docker exec outcall-daemon outcall bridge status
-│       └── talks to outcalld via unix socket
+```rust
+#[tokio::test]
+async fn reload_picks_up_new_rules() { … }
 ```
 
-## Smoke tests (`make test`)
+You don't have to set up a runtime yourself.
 
-Spins up a disposable Alpine container on the outcall network and verifies
-three types of outbound traffic are blocked:
+## Integration tests (`cargo test --test ...`)
 
-| Test | Command | Expected |
-|------|---------|----------|
-| HTTP | `wget -qO- -T 3 http://example.com` | Timeout (blocked) |
-| ICMP | `ping -c1 -W 2 1.1.1.1` | No reply (blocked) |
-| DNS  | `nslookup -timeout=2 google.com 8.8.8.8` | Failure (blocked) |
+Integration tests live in `outcalld/tests/*.rs` — separate files, compiled
+against the public crate API. They exercise real syscalls.
 
-Note: Docker's built-in DNS (127.0.0.11) still works inside containers because
-it's local delivery, not forwarded through the bridge. The test uses an external
-DNS server (8.8.8.8) to verify forwarded UDP is blocked.
+Today there is **one** integration test:
 
-Requires the daemon to be running (`make start`).
+- `outcalld/tests/bridge_integration.rs` — creates and destroys the
+  `outcall0` bridge, applies and tears down nftables rules. Verifies state
+  via `ip link show` and `nft list table`.
 
-## E2E test suite (`make test-e2e`)
+It needs Linux and `CAP_NET_ADMIN` (or root):
 
-Self-contained: builds the image if needed, runs a privileged container that
-sets up the bridge, nftables, and an agent network namespace, then executes
-all test scripts in `scripts/e2e/tests/` in order. See
-[docs/tests/](tests/) for detailed descriptions of each test.
-
-Does NOT require `make start` — it runs independently.
-
-```bash
-make test-e2e
+```sh
+sudo cargo test -p outcalld --test bridge_integration -- --nocapture
 ```
 
-The container needs `NET_ADMIN`, `NET_RAW`, `SYS_ADMIN`, and
-`net.ipv4.ip_forward=1`.
+On macOS the test is gated behind `#![cfg(target_os = "linux")]` and is
+silently skipped.
 
-### Adding a new E2E test
+> **Want to write more?** S012 (TLS interception) names a few that should
+> exist next: `intercept_e2e.rs`, `intercept_logging.rs`,
+> `mixed_modes_e2e.rs`. Drop them in the same directory; `cargo test`
+> picks them up.
 
-Drop a numbered `.sh` script in `scripts/e2e/tests/`. The entrypoint picks
-them up via glob. Each script receives these env vars:
+## Continuous integration
+
+`application/.github/workflows/ci.yml` runs four jobs on every push and PR
+to `main`:
+
+| Job | Command | What fails it |
+|---|---|---|
+| `check` | `cargo check --workspace --all-targets` | compilation error |
+| `test` | `cargo test --workspace --all-targets` | a unit or integration test fails |
+| `fmt` | `cargo fmt --all -- --check` | formatting drift |
+| `clippy` | `cargo clippy --workspace --all-targets -- -D warnings` | any new clippy warning |
+
+`-- -D warnings` on clippy is strict: a single new warning is treated as a
+compilation error. Keep new code lint-clean.
+
+> CI runs on `ubuntu-latest`, so the Linux-only integration test in
+> `outcalld/tests/bridge_integration.rs` runs there but is gated by a
+> root check. By default the test exits clean if it isn't running as
+> root, so on a stock GitHub runner it's effectively a no-op.
+
+## Code coverage
+
+The Outcall workspace plays well with `cargo-llvm-cov`, which uses LLVM's
+source-based coverage to produce per-file line coverage:
+
+```sh
+cargo install cargo-llvm-cov
+cargo install cargo-nextest    # optional but faster
+
+cd application
+
+# Plain text summary
+cargo llvm-cov --workspace --all-targets
+
+# Per-file HTML report (open target/llvm-cov/html/index.html)
+cargo llvm-cov --workspace --all-targets --html
+
+# Just the daemon, including its integration test
+cargo llvm-cov -p outcalld
+
+# CI-friendly: emit lcov for upload
+cargo llvm-cov --workspace --all-targets --lcov --output-path lcov.info
+```
+
+`cargo llvm-cov` recompiles with `-C instrument-coverage` then runs the
+tests; expect a fresh first run to take 1–2 minutes longer than a normal
+`cargo test`.
+
+### Realistic coverage targets
+
+Outcall is a network daemon — large parts of it are I/O, syscalls, and
+async glue that is hard to unit-test. Aim for:
+
+| Crate | Target line coverage | Why |
+|---|---|---|
+| `outcall-api` | 90%+ | Pure types and constants. Easy. |
+| `outcalld/rules/` | 80%+ | Pure-ish CEL evaluation; should be heavily covered. |
+| `outcalld/proxy/` (parsing) | 85%+ | The parser functions are pure; the IO loop isn't. |
+| `outcalld/proxy/` (handle_*) | not unit-test territory | Use integration tests (S011 names a few). |
+| `outcalld/network/`, `outcalld/dns/`, `outcalld/docker/` | covered via integration | Wire them into `tests/*.rs` rather than mocking everything. |
+
+Don't chase a single workspace-wide percentage — the meaningful number is
+"the parsers and the rule engine are well-covered, and every subsystem
+has at least one integration test that proves the wiring works".
+
+## End-to-end harness (`make test` / `make test-e2e`)
+
+The `Makefile` at the repo root drives a Docker-based smoke test. This is
+not unit testing — it's a "does the whole binary actually do the thing on a
+fresh host" check.
+
+```sh
+make build          # one-time: build the outcall-e2e Docker image (~2 min)
+make start          # creates network, starts outcalld in a container
+make test           # runs HTTP / ICMP / DNS smoke tests against an Alpine agent
+make test-e2e       # full E2E test suite from scripts/e2e/tests/
+make stop           # tear everything down
+```
+
+| Make target | What it does |
+|---|---|
+| `make build` | Build `outcall-e2e` image |
+| `make start` / `make stop` | Daemon lifecycle in Docker |
+| `make status` | `outcall bridge status` inside the daemon container |
+| `make agent` | Interactive Alpine shell on the outcall network |
+| `make logs` | Tail daemon logs |
+| `make exec CMD="…"` | Run any command inside the daemon container |
+| `make clean` | Stop + remove the image |
+
+`make test-e2e` is self-contained: it builds the image if needed and runs
+the test scripts in `scripts/e2e/tests/` with the right capabilities
+(`NET_ADMIN`, `NET_RAW`, `SYS_ADMIN`, `net.ipv4.ip_forward=1`).
+
+### Adding an E2E test
+
+Drop a numbered `.sh` script in `scripts/e2e/tests/`. Each script gets:
 
 | Variable | Value | Description |
-|----------|-------|-------------|
+|---|---|---|
 | `BRIDGE` | `outcall0` | Bridge interface name |
-| `BRIDGE_IP` | `10.99.0.1` | Bridge IP address |
+| `BRIDGE_IP` | `10.99.0.1` | Bridge IP |
 | `AGENT_NS` | `agent1` | Network namespace name |
 | `AGENT_IP` | `10.99.0.2` | Agent IP inside the namespace |
 | `TARGET_IP` | (dynamic) | Container's eth0 IP (forwarded target) |
 
-Exit 0 = pass, non-zero = fail.
+Exit `0` = pass, non-zero = fail. Existing scripts are documented in
+[the test plans](/docs/guides/tests).
 
-## Interactive testing (`make agent`)
+## Where to dig deeper
 
-Opens an Alpine shell on the outcall network. Run from a real terminal (needs
-TTY).
-
-```bash
-make start
-make agent
-```
-
-Inside the shell:
-
-```sh
-wget -qO- http://example.com     # blocked
-ping -c1 1.1.1.1                  # blocked
-nslookup google.com               # resolves (Docker DNS) but can't reach the IP
-apk update                        # blocked (can't reach repos)
-```
-
-From a second terminal, toggle the rules:
-
-```bash
-make exec CMD="outcall bridge down"   # drop nftables rules
-# now the agent can reach the internet
-make exec CMD="outcall bridge up"     # re-apply rules
-# agent is locked down again
-```
-
-## Rule egress modes (proxy vs direct_ip)
-
-Outcall rules can explicitly choose egress style for DNS allow entries:
-
-- `egress.mode: proxy` (recommended): no L3/L4 nftables hole, enforce by HTTP proxy + SNI.
-- `egress.mode: direct_ip`: opens scoped dynamic nftables allows from DNS A-record answers.
-
-Example rule:
-
-```yaml
-version: "1"
-rules:
-  - id: allow-dns-ports-ubuntu-com
-    condition: 'dns.query == "ports.ubuntu.com"'
-    action: allow
-    egress:
-      mode: direct_ip
-      ports: [80, 443]
-```
-
-## CLI reference
-
-### outcalld (daemon)
-
-Runs on Linux only. Manages the bridge, nftables rules, and host API.
-
-```
-outcalld                             # start with defaults
-outcalld --bridge outcall0           # specify bridge name
-outcalld --socket /tmp/out.sock      # custom socket path
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--bridge` | `outcall0` | Bridge interface name |
-| `--socket` | `/run/outcall/host.sock` | Host API socket path |
-
-**Startup sequence:**
-1. Creates (or attaches to) the bridge
-2. Applies the base nftables drop-all ruleset
-3. Starts the host API on the unix socket
-4. Waits for shutdown (Ctrl-C or SIGTERM)
-
-**Shutdown sequence:**
-1. Tears down the nftables table
-2. Removes the bridge interface
-3. Deletes the socket file
-
-### outcall (host CLI)
-
-Talks to `outcalld` over the unix socket. Platform-independent binary but only
-useful when `outcalld` is running.
-
-```
-outcall bridge status    # show bridge name, state, nftables status
-outcall bridge up        # initialize bridge + apply nftables rules
-outcall bridge down      # tear down bridge + remove nftables rules
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--socket` | `/run/outcall/host.sock` | Path to outcalld socket |
-
-**Output example:**
-
-```
-Bridge:    outcall0
-Status:    up
-Index:     42
-nftables:  active
-```
-
-Since the binaries run inside Docker, use `make exec` or `docker exec`:
-
-```bash
-make exec CMD="outcall bridge status"
-# or
-docker exec outcall-daemon outcall bridge status
-```
-
-## Host API
-
-The daemon exposes a JSON API on the unix socket. The `outcall` CLI is a thin
-client over this API.
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/v1/bridge` | Bridge status (fresh netlink + nft check) |
-| POST | `/api/v1/bridge/up` | Initialize bridge + nftables rules |
-| POST | `/api/v1/bridge/down` | Tear down bridge + nftables rules |
-
-All responses use the `ApiResponse<T>` envelope:
-
-```json
-{"success": true, "data": { ... }}
-{"success": false, "error": "message"}
-```
-
-## Requirements
-
-- Docker Desktop (macOS) or Docker Engine (Linux)
-- GNU Make
-- For direct (non-Docker) testing on Linux: root or `CAP_NET_ADMIN`, plus
-  `nftables` and `iproute2` packages
+- [S012: Test Coverage](/docs/specs/012-test-coverage) — current coverage
+  inventory, gaps, and the integration tests that should land.
+- [Specs S001 / S003 / S006 / S011](/docs/specs) — every spec has its own
+  acceptance scenarios and success criteria. Tests should cite the spec
+  IDs they cover.
+- [CLI reference](/docs/guides/cli) — the surface tested by these layers.
