@@ -70,6 +70,7 @@ inside a controlled internal network.
 
 | Field | Type | Example |
 |---|---|---|
+| `agent.name` | string | `"my-agent"` (derived from container name, e.g. `outcall-agent-my-agent-1` → `my-agent`) |
 | `agent.container_id` | string | `"d4a1c5..."` |
 | `agent.image` | string | `"ghcr.io/example/agent:1.2.3"` |
 
