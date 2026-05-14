@@ -165,6 +165,36 @@ outcall container create \
 outcall container list
 ```
 
+## agent
+
+Boot an AI agent container for the current project (S014).
+
+```sh
+outcall agent                          # Boot agent with current folder name
+outcall agent "analyze this code"      # Boot and pass command to agent
+outcall agent --name my-agent          # Custom agent name
+outcall agent --image custom:latest    # Custom Docker image
+outcall agent --detach                 # Run in background
+outcall agent --list                   # List running agents
+outcall agent --stop                   # Stop agent (auto-detects name)
+outcall agent --logs --follow          # Tail agent logs
+outcall agent --init                   # Create .outcall/agent.yaml template
+```
+
+The agent mounts the current directory at `/workspace` inside the container.
+Configure per-project settings in `.outcall/agent.yaml`:
+
+```yaml
+image: custom-image:latest
+name: my-project-agent
+volumes:
+  - /host/data:/data
+env:
+  API_KEY: secret
+ports:
+  - 3000:3000
+```
+
 Test a rule before deploying it:
 
 ```sh

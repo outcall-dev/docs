@@ -21,21 +21,21 @@ cd application
 cargo test --workspace --all-targets
 ```
 
-Today there are **69 unit tests** across the workspace. They cover (most-
+Today there are **122 unit tests** across the workspace. They cover (most-
 to-least populous):
 
 | File | Tests | What's covered |
 |---|---|---|
-| `outcalld/src/rules/engine.rs` | 16 | CEL evaluation, reload, rule priority, dynamic merge |
+| `outcalld/src/rules/engine.rs` | 58 | CEL evaluation, reload, rule priority, dynamic merge, agent.name context |
 | `outcalld/src/proxy/mod.rs` | 12 | SNI extraction, host:port parsing, request line parsing, CRLF detection |
 | `outcalld/src/network/mod.rs` | 11 | Subnet allocation, CIDR validation |
-| `outcalld/src/agent_api/mod.rs` | 7 | Agent permission-check protocol |
+| `outcalld/src/agent_api/mod.rs` | 7 | Agent permission-check protocol, SO_PEERCRED identity |
 | `outcalld/src/docker/mod.rs` | 7 | Docker network create/destroy paths |
 | `outcalld/src/dynamic/mod.rs` | 5 | Dynamic rule merge into the active set |
 | `outcall-agent/src/main.rs` | 4 | Tool-invocation parsing (bash, fetch, file_read) |
 | `outcalld/src/dns/mod.rs` | 3 | DNS filter happy path + cache |
 | `outcall-ui/src/lib.rs` | 2 | UI types |
-| `outcalld/src/rules/model.rs` | 1 | Rule YAML deserialization (incl. `egress.mode: direct_ip`) |
+| `outcalld/src/rules/model.rs` | 1 | Rule YAML deserialization (incl. `egress.mode: direct_ip`)
 
 Unit tests are pure-Rust. They run on macOS, Linux, and CI without any
 capabilities, sockets, or Docker.
@@ -66,13 +66,22 @@ You don't have to set up a runtime yourself.
 Integration tests live in `outcalld/tests/*.rs` — separate files, compiled
 against the public crate API. They exercise real syscalls.
 
-Today there is **one** integration test:
+Today there are **10** integration test files:
 
-- `outcalld/tests/bridge_integration.rs` — creates and destroys the
-  `outcall0` bridge, applies and tears down nftables rules. Verifies state
-  via `ip link show` and `nft list table`.
+| File | What it exercises | Requirements |
+|---|---|---|
+| `bridge_integration.rs` | Bridge create/destroy, nftables apply/teardown | Linux + root |
+| `cli_integration.rs` | CLI subcommands over Unix socket | outcalld running |
+| `agent_api_integration.rs` | Agent shim verdict round-trip via agent.sock | Linux |
+| `proxy_http_integration.rs` | HTTP proxy ALLOW/BLOCK | outcalld + bridge up |
+| `proxy_https_integration.rs` | HTTPS CONNECT + SNI-based BLOCK | outcalld + bridge up |
+| `proxy_dns_integration.rs` | DNS filter + proxy interaction | outcalld + bridge up |
+| `dynamic_rules_integration.rs` | Dynamic rule insert + flush | outcalld + bridge up |
+| `intercept_e2e.rs` | TLS interception with generated CA | Linux |
+| `intercept_logging.rs` | No sensitive data in structured logs | Linux |
+| `mixed_modes_e2e.rs` | proxy/direct_ip/intercept in one ruleset | Linux |
 
-It needs Linux and `CAP_NET_ADMIN` (or root):
+The bridge test needs Linux and `CAP_NET_ADMIN` (or root):
 
 ```sh
 sudo cargo test -p outcalld --test bridge_integration -- --nocapture

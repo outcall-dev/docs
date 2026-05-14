@@ -70,9 +70,39 @@ inside a controlled internal network.
 
 | Field | Type | Example |
 |---|---|---|
-| `agent.name` | string | `"my-agent"` (derived from container name, e.g. `outcall-agent-my-agent-1` → `my-agent`) |
-| `agent.container_id` | string | `"d4a1c5..."` |
-| `agent.image` | string | `"ghcr.io/example/agent:1.2.3"` |
+| `agent.name` | string | `"my-agent"` (derived from container name; the trailing `-N` replica suffix is stripped, so `outcall-agent-my-agent-1` and `outcall-agent-my-agent-2` both resolve to `"my-agent"`) |
+
+`agent.name` is populated only when outcalld can identify the calling container:
+
+- **Proxy path (HTTP/HTTPS via the proxy port):** the daemon resolves the
+  TCP peer's source IP to a container via the `managed-by=outcalld` label,
+  then strips the `-N` suffix.
+- **Agent shim path (`/run/outcall/agent.sock`):** the daemon reads
+  `SO_PEERCRED` from the Unix socket to identify the caller.
+
+If either resolution fails (unmanaged container, traffic that doesn't transit
+either path, or a request from outside the network), `agent` is unset and
+referencing `agent.name` evaluates to `null` — your rule should treat that
+case explicitly. For container-image matching use `docker.image` instead.
+
+```yaml
+# Allow only the CI agent (any replica) to fetch from PyPI.
+- id: ci-agent-pypi
+  condition: 'agent.name == "ci" && http.host == "pypi.org"'
+  action: allow
+  egress: { mode: proxy, ports: [443] }
+
+# Block dev replicas from PyPI even though the rule above wouldn't match them.
+- id: dev-agents-no-pypi
+  condition: 'agent.name == "dev" && http.host == "pypi.org"'
+  action: deny
+
+# Belt-and-braces: if agent identity is unknown, deny network egress.
+- id: deny-unidentified
+  condition: 'agent == null'
+  action: deny
+  priority: 999
+```
 
 You can mix contexts in a single rule. The engine surfaces only the fields
 relevant to the layer asking for a verdict — references to absent fields
