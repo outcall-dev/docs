@@ -195,7 +195,7 @@ docker create \
   --mount type=bind,source=/run/outcall/agent.sock,target=/run/outcall/agent.sock \
   --mount type=bind,source=/usr/local/bin/outcall-agent,target=/usr/local/bin/outcall,ro \
   --env HTTP_PROXY="http://10.200.0.1:8080" \
-  --env HTTPS_PROXY="http://10.0.0.1:8080" \
+  --env HTTPS_PROXY="http://10.200.0.1:8080" \
   --dns 10.200.0.1 \
   -it \
   alpine:latest \

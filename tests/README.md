@@ -10,6 +10,18 @@ simulating an agent container attached to the outcall bridge.
 | 03 | [icmp-blocked](03-icmp-blocked.md) | Negative | Outbound ICMP is dropped |
 | 04 | [host-reachable](04-host-reachable.md) | Positive | Agent can reach the bridge IP (host API) |
 | 05 | [allow-then-reblock](05-allow-then-reblock.md) | Causation | nftables rules control access, not routing |
+| 06 | dns-allowed-ipv4 | Positive | IPv4 DNS allow rule resolves correctly |
+| 07 | dns-allowed-ipv6 | Positive | IPv6 DNS allow rule resolves correctly |
+| 08 | http-allowed | Positive | HTTP proxy allows a permitted host |
+| 09 | https-allowed | Positive | HTTPS CONNECT is allowed for permitted SNI |
+| 10 | egress-proxy | Positive | Egress mode `proxy` enforces at L7 |
+| 11 | egress-direct-ip | Positive | Egress mode `direct_ip` inserts nftables allow |
+| 12 | private-ip-blocked | Negative | RFC 1918 direct-IP traffic is dropped |
+| 13 | port-scan-blocked | Negative | Port scan against the bridge is dropped |
+| 14 | security-boundary | Security | Container cannot bypass nftables from inside |
+| 15 | trusted-repos | Positive | Allow list for trusted registries works end-to-end |
+| 16 | hostname-ip-allowlist | Positive | DNS + nftables allow for a multi-IP hostname |
+| 17 | host-cli-restrictions | Security | CLI commands are restricted to host socket |
 
 ## Running
 

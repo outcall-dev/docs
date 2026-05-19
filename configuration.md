@@ -27,23 +27,20 @@ If port `8080` is bound on the host already, pass `--no-proxy` or pick a
 free port with `--proxy-addr 0.0.0.0:18080`. Containers then need their
 `HTTP_PROXY` env vars updated to match.
 
-### Optional: TLS interception (S011)
+### TLS interception flags (S011 — not yet implemented)
 
-The HTTP proxy can be put into a per-rule TLS-interception mode for L7
-matching on encrypted traffic. The flags below are loaded only when both
-are present and readable:
+> **Not yet implemented.** S011 is in development. The flags below are
+> accepted by the daemon CLI (they parse without error) but TLS interception
+> is a no-op in the current release — no leaf certificates are minted, no
+> bodies are buffered, and `egress.mode: intercept` is rejected at rule
+> reload time. Do not rely on these flags for enforcement.
 
-| Flag | Default | Purpose |
+| Flag | Default | Purpose (when S011 ships) |
 |---|---|---|
-| `--ca-cert <path>` | _unset_ | PEM-encoded root CA certificate the proxy uses to sign per-host leaf certs. |
-| `--ca-key <path>` | _unset_ | PEM-encoded root CA private key. Daemon refuses to start if permissions are broader than `0600`. |
+| `--ca-cert <path>` | _unset_ | PEM-encoded root CA certificate the proxy will use to sign per-host leaf certs. |
+| `--ca-key <path>` | _unset_ | PEM-encoded root CA private key. |
 | `--intercept-leaf-ttl-secs <n>` | `86400` | Validity window of generated leaf certificates. |
 | `--intercept-body-cap-bytes <n>` | `1048576` | Maximum bytes the proxy will buffer for `http.body` matching. |
-
-When neither `--ca-cert` nor `--ca-key` is supplied, interception is
-disabled and any rule with `egress.mode: intercept` is rejected at reload
-time. See [Writing rules — TLS interception](/docs/guides/rules#tls-interception-mode-intercept)
-and [S011](/docs/specs/011-tls-interception) for the full spec.
 
 ## Capability requirements
 

@@ -68,8 +68,8 @@ single-operator workstation.
 
 ## Approving rule requests
 
-When an agent calls `POST /api/v1/rule-request` from inside its container,
-the request lands in the queue visible on the dashboard's **Rule requests**
+When an agent calls `POST /v1/requests/rules` on the agent socket, the
+request lands in the queue visible on the dashboard's **Rule requests**
 view. Each row has **Approve** and **Reject** buttons that call:
 
 - `POST /api/v1/rule-requests/<id>/approve` — writes a new rule into
@@ -77,6 +77,11 @@ view. Each row has **Approve** and **Reject** buttons that call:
   `outcall rules reload` after editing the file by hand.
 - `POST /api/v1/rule-requests/<id>/reject` — drops the request without a
   rule change.
+
+Note: agents submit rule requests to the **agent socket** at
+`/v1/requests/rules`. The dashboard approve/reject buttons POST to the
+**host API** (operator socket), which is the only surface that can
+actually write rule files.
 
 Both actions take effect immediately and are visible to the requesting
 agent on its next heartbeat.

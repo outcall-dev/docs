@@ -49,8 +49,13 @@ rules:
 EOF
 ```
 
-Reload the rules. There is no CLI subcommand for this yet — POST to the
-host API:
+Reload the rules:
+
+```sh
+outcall rules reload
+```
+
+Or, equivalently, POST to the host API directly:
 
 ```sh
 sudo curl -fsS --unix-socket /run/outcall/host.sock \
@@ -138,7 +143,7 @@ curl --unix-socket /run/outcall/host.sock http://localhost/api/v1/rules | jq .
 
 ## Where to go next
 
-- [Writing rules](/docs/guides/rules) — every matcher, every action, including the optional TLS-interception mode.
+- [Writing rules](/docs/guides/rules) — every matcher, every action.
 - [Configuration](/docs/guides/configuration) — every daemon flag.
 - [CLI reference](/docs/guides/cli) — every `outcall` subcommand.
 - [Troubleshooting](/docs/guides/troubleshooting) — diagnosing the most common failures.

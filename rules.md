@@ -1,8 +1,9 @@
 # Writing rules
 
 Rules are YAML files in `/etc/outcall/rules.d/`. Every file may declare a
-list of rules; the daemon concatenates them, in filename order, into one
-active rule set.
+list of rules; the daemon concatenates them, sorts by `priority`, and
+evaluates in order for each request. **Default action when no rule matches
+is `block`.**
 
 ## Anatomy
 
@@ -20,59 +21,94 @@ rules:
 | Field | Required | Purpose |
 |---|---|---|
 | `version` | yes | YAML schema version. Currently `"1"`. |
-| `id` | yes | Unique within the active rule set. Used in logs and `outcall rules show`. |
+| `id` | yes | Unique within the active rule set. Used in logs and structured log output. |
 | `description` | no | Free-form. Surface this in dashboards. |
-| `condition` | yes | A CEL expression. See [matchers](#matchers). |
-| `action` | yes | `allow` or `block`. Default action when no rule matches is `block`. |
+| `condition` | yes | A CEL expression. See [bindings](#bindings). |
+| `action` | yes | `allow`, `block`, or `enrich`. Default when no rule matches is `block`. |
+| `priority` | no | Integer, lower runs first. Default `100`. Use `< 100` for explicit-deny rules that should fire ahead of allows. |
+| `log` | no | `true` to emit a structured log entry when this rule matches. Default `false`. |
 | `egress` | no | Per-rule egress configuration when `action: allow`. |
 
-## Matchers
+## Definitions and `$name` references
 
-Conditions are written in [CEL](https://github.com/google/cel-spec). The rule
-engine evaluates the condition against a context object whose shape depends on
-the layer that asked for a verdict.
+`definitions:` lets you name a sub-expression and reuse it across rules.
+References use the `$name` syntax — the daemon expands them recursively
+before CEL compilation. Use YAML folded scalars (`>-`) for multi-line
+definitions; plain literal blocks (`|`) keep newlines which the CEL parser
+rejects.
 
-### DNS context
+```yaml
+version: "1"
+definitions:
+  is_github_host: >-
+    dns.query == "github.com" ||
+    dns.query == "api.github.com" ||
+    dns.query.endsWith(".githubusercontent.com")
+rules:
+  - id: allow-dns-github
+    condition: '$is_github_host'
+    action: allow
+```
+
+Circular references and references to undefined names are errors at load
+time.
+
+## Bindings
+
+CEL expressions evaluate against a context object whose namespaces depend
+on the layer asking for a verdict. Fields not populated by the asking
+layer evaluate to their zero value (empty string, 0, empty map).
+
+If a rule references a field that does not exist in any namespace (e.g.
+`ip.dst`, which is not a binding), the CEL runtime raises an error,
+outcalld logs a `warn!` with the rule id and treats the rule as no-match.
+Operationally: a rule that compiles but never fires is almost always a
+typo in a field name — check the daemon log for `warn!` entries naming the rule id.
+
+### `network` (raw L3/L4)
 
 | Field | Type | Example |
 |---|---|---|
-| `dns.query` | string | `"api.openai.com"` |
-| `dns.type` | string | `"A"`, `"AAAA"`, `"CNAME"` |
+| `network.hostname` | string | `"api.github.com"` (empty when the layer doesn't know it) |
+| `network.ip` | string | `"140.82.121.4"` |
+| `network.port` | int | `443` |
+| `network.protocol` | string | `"tcp"`, `"udp"` |
 
-### HTTP context
+### `http`
 
-Outcall does **not** decrypt HTTPS — there is no TLS interception, no CA, no
-MITM. What the rule engine sees depends on whether the request is plaintext
-HTTP or tunnelled HTTPS:
+Outcall does **not** decrypt HTTPS — there is no TLS interception, no CA,
+no MITM. What the rule engine sees depends on whether the request is
+plaintext HTTP or tunnelled HTTPS:
 
 | Field | Plaintext HTTP | HTTPS (CONNECT + SNI) |
 |---|---|---|
 | `http.host` | Host header | CONNECT host, then SNI from the TLS ClientHello |
 | `http.method` | actual method (`GET`, `POST`, …) | always `"CONNECT"` |
 | `http.path` | actual path | always `"/"` |
-| `http.scheme` | `"http"` | `"https"` |
+| `http.headers` | map<string,string> of all request headers | only those sent before the tunnel begins |
+| `http.body_size` | bytes (currently `0` — body is not buffered) | `0` |
 
-Practical consequence: **filtering HTTPS by method or path is not possible**
-without TLS termination, and Outcall does not terminate TLS. To restrict an
-HTTPS service, match on `http.host` (and optionally `dns.query`) only. To
-restrict by method or path, the traffic must be plaintext HTTP — usually
-inside a controlled internal network.
+Filtering HTTPS by method or path is **not possible** without TLS
+termination, and Outcall does not terminate TLS. To restrict an HTTPS
+service, match on `http.host` (and optionally `dns.query` and
+`network.port`). To restrict by method or path, the traffic must be
+plaintext HTTP — usually inside a controlled internal network.
 
-### Network context (raw L3/L4)
-
-| Field | Type | Example |
-|---|---|---|
-| `net.dst_ip` | string | `"140.82.121.4"` |
-| `net.dst_port` | int | `443` |
-| `net.protocol` | string | `"tcp"`, `"udp"`, `"icmp"` |
-
-### Agent context
+### `dns`
 
 | Field | Type | Example |
 |---|---|---|
-| `agent.name` | string | `"my-agent"` (derived from container name; the trailing `-N` replica suffix is stripped, so `outcall-agent-my-agent-1` and `outcall-agent-my-agent-2` both resolve to `"my-agent"`) |
+| `dns.query` | string | `"api.openai.com"` |
+| `dns.record_type` | string | `"A"`, `"AAAA"`, `"CNAME"` |
 
-`agent.name` is populated only when outcalld can identify the calling container:
+### `agent`
+
+| Field | Type | Example |
+|---|---|---|
+| `agent.name` | string | `"my-agent"` (derived from container name; the trailing `-N` replica suffix is stripped, so `my-agent-1` and `my-agent-2` both resolve to `"my-agent"`) |
+
+`agent.name` is populated only when outcalld can identify the calling
+container:
 
 - **Proxy path (HTTP/HTTPS via the proxy port):** the daemon resolves the
   TCP peer's source IP to a container via the `managed-by=outcalld` label,
@@ -80,157 +116,94 @@ inside a controlled internal network.
 - **Agent shim path (`/run/outcall/agent.sock`):** the daemon reads
   `SO_PEERCRED` from the Unix socket to identify the caller.
 
-If either resolution fails (unmanaged container, traffic that doesn't transit
-either path, or a request from outside the network), `agent` is unset and
-referencing `agent.name` evaluates to `null` — your rule should treat that
-case explicitly. For container-image matching use `docker.image` instead.
+If either resolution fails (unmanaged container, traffic that doesn't
+transit either path, or a request from outside the network), the `agent`
+context is unset and `agent.name` evaluates to an empty string (`""`).
+Your rule should treat that case explicitly:
 
 ```yaml
 # Allow only the CI agent (any replica) to fetch from PyPI.
 - id: ci-agent-pypi
   condition: 'agent.name == "ci" && http.host == "pypi.org"'
   action: allow
-  egress: { mode: proxy, ports: [443] }
+  egress: { mode: proxy }
 
-# Block dev replicas from PyPI even though the rule above wouldn't match them.
-- id: dev-agents-no-pypi
-  condition: 'agent.name == "dev" && http.host == "pypi.org"'
-  action: deny
-
-# Belt-and-braces: if agent identity is unknown, deny network egress.
+# Block any request whose agent identity could not be determined.
 - id: deny-unidentified
-  condition: 'agent == null'
-  action: deny
+  condition: 'agent.name == ""'
   priority: 999
+  action: block
 ```
 
-You can mix contexts in a single rule. The engine surfaces only the fields
-relevant to the layer asking for a verdict — references to absent fields
-evaluate to `null` and short-circuit `&&`/`||` correctly.
+### `docker`
+
+Populated only by rule evaluations originating from a container lifecycle
+event (image pull, container create). Not populated for in-flight network
+traffic.
+
+| Field | Type |
+|---|---|
+| `docker.image` | string |
+| `docker.command` | list<string> |
+| `docker.volumes` | list<string> |
+| `docker.env_keys` | list<string> (names only, no values) |
+| `docker.capabilities` | list<string> |
+
+### `run`
+
+Populated when the agent shim asks for permission to run a tool, exec a
+shell command, or access a file (see `outcall-agent`'s `permissions check`
+API).
+
+| Field | Type |
+|---|---|
+| `run.tool` | string |
+| `run.args` | list<string> |
+| `run.flags` | list<string> |
+| `run.cwd` | string |
 
 ## Actions
+
+`action` is one of:
+
+| Action | Behavior |
+|---|---|
+| `allow` | Permit the request. May carry an `egress:` block. |
+| `block` | Deny the request. 403 at the proxy, NXDOMAIN at the DNS filter. |
+| `enrich` | Reserved for future use. Does not terminate evaluation. |
+
+The default action when no rule matches is `block`. There is no `deny`
+action — write `block`.
+
+## Egress modes
 
 ```yaml
 action: allow
 egress:
   mode: proxy            # enforce at L7 via the HTTP proxy
-  ports: [443]           # required when mode is direct_ip
+  ports: [443]           # informational; only used by direct_ip
 ```
 
-| Mode | Behaviour |
+| Mode | Behavior |
 |---|---|
-| `proxy` (default) | Allow only via the HTTP proxy. SNI/Host enforced at L7. **No TLS decryption.** Recommended for most rules. |
-| `direct_ip` | Insert a per-rule nftables `accept` for each resolved IPv4/IPv6 of the matching DNS query. Use only when the agent uses raw sockets that can't transit the proxy. |
-| `intercept` | **Optional, off by default.** Terminate TLS at the proxy using an operator-provided CA so the rule engine can match on `http.method`, `http.path`, and (optionally) `http.body`. Requires `--ca-cert` / `--ca-key` on the daemon and the CA installed in the agent's trust store. See [TLS interception](#tls-interception-mode-intercept) below. |
+| `proxy` (default) | Allow only via the HTTP proxy. SNI/Host enforced at L7. **No TLS decryption.** Recommended for almost all rules. |
+| `direct_ip` | Insert a per-rule nftables `accept` for each resolved IPv4/IPv6 of a matching DNS query. Use only when the agent uses raw sockets that can't transit the proxy (e.g. `apt` with parallel range fetches). |
 
-`direct_ip` defaults to ports `[80, 443]` when omitted.
+`direct_ip` defaults to ports `[80, 443]` when `ports:` is omitted.
 
-## TLS interception (`mode: intercept`)
-
-For most rules, `mode: proxy` is the right answer — you can match HTTPS by
-hostname (CONNECT host + SNI), and the agent's TLS session is preserved
-end-to-end.
-
-When you genuinely need to enforce policy on the *contents* of an HTTPS
-request — only allow `POST /v1/messages` against `api.anthropic.com`, or
-reject a JSON body that contains a forbidden field — you need the proxy to
-decrypt. That's what `mode: intercept` gives you, with explicit trade-offs:
-
-- **You provision a CA.** `outcall ca init` produces a fresh root CA. The
-  cert is the trust anchor; the key signs per-host leaf certs the proxy
-  presents to the agent. The key is sensitive material — store it as you'd
-  store any private key.
-- **The agent must trust the CA.** Mount the cert into the container's
-  trust store (`/usr/local/share/ca-certificates/outcall.crt` on
-  Debian/Ubuntu, then `update-ca-certificates`). For Python's `certifi`
-  bundle, use `SSL_CERT_FILE`.
-- **Pinning breaks.** Hosts that pin certificates at the application layer
-  (Google services, some banks) will reject the proxy's leaf cert.
-  Document those hosts and use `mode: proxy` for them.
-- **mTLS breaks.** A client cert presented by the agent terminates at the
-  proxy. mTLS-protected upstreams must use `mode: proxy`.
-- **Bodies enter the daemon's memory.** When `match_body: true`, the
-  request body up to the configured cap (default 1 MiB) is buffered in
-  the proxy. Sensitive bodies should be considered visible to the daemon.
-
-### Setup
-
-```sh
-# 1. Generate a CA (once per host).
-outcall ca init --out /etc/outcall/ca/
-
-# 2. Restart outcalld with the CA flags.
-outcalld \
-  --bridge outcall0 \
-  --ca-cert /etc/outcall/ca/ca.crt \
-  --ca-key  /etc/outcall/ca/ca.key
-
-# 3. Confirm the CA is loaded.
-outcall ca status
-
-# 4. Distribute the CA cert to your container build (or mount at runtime).
-outcall ca bundle > /etc/outcall/ca/ca.pem
-```
-
-### Enabling on a rule
-
-```yaml
-version: "1"
-rules:
-  - id: anthropic-messages-only
-    description: "agent may POST messages, nothing else on this host"
-    condition: |
-      http.host == "api.anthropic.com" &&
-      http.method == "POST" &&
-      http.path.startsWith("/v1/messages")
-    action: allow
-    egress:
-      mode: intercept
-```
-
-A rule with `mode: intercept` is rejected at reload if no CA is loaded —
-the daemon refuses the whole rule set rather than silently degrading.
-
-### Inspecting payloads
-
-When you need to match on body contents, opt in per rule:
-
-```yaml
-- id: openai-no-system-override
-  description: "block prompts that try to override the system role"
-  condition: |
-    http.host == "api.openai.com" &&
-    http.method == "POST" &&
-    http.body != null &&
-    !http.body.contains('"role":"system"')
-  action: allow
-  egress:
-    mode: intercept
-    match_body: true
-```
-
-`http.body` is `null` when:
-- The rule does not set `match_body: true`.
-- The body exceeds `--intercept-body-cap-bytes` (default 1 MiB).
-- The body fails UTF-8 decode (lossy replacement is attempted first).
-
-Always test for nullness before string operations: a rule with
-`http.body.contains(...)` and a non-text payload would error otherwise.
-
-The full spec — every flag, every error code, every edge case — is in
-[S011: TLS Interception](/docs/specs/011-tls-interception).
+There is **no TLS interception mode** in the current release. Body-content
+matching requires a CA-issued certificate to terminate TLS — not yet
+shipped. If you need that capability, file an issue.
 
 ## Examples
 
-### Allow GitHub clone (HTTPS), nothing else
+### Allow GitHub clone over HTTPS
 
 ```yaml
 version: "1"
 rules:
   - id: allow-github-https
-    condition: |
-      dns.query == "github.com" ||
-      http.host == "github.com"
+    condition: 'dns.query == "github.com" || http.host == "github.com"'
     action: allow
 ```
 
@@ -238,69 +211,92 @@ Method matching (`http.method == "GET"`) cannot be enforced through the
 HTTPS proxy — the encrypted tunnel hides it. Allow the host, accept that
 the agent could in principle make any HTTPS verb to it.
 
-### Allow the npm registry
+### Allow the npm registry, only over 443
 
 ```yaml
 version: "1"
 rules:
   - id: allow-npm
-    condition: 'http.host == "registry.npmjs.org"'
+    condition: |
+      http.host == "registry.npmjs.org" &&
+      network.port == 443
     action: allow
+    egress:
+      mode: proxy
 ```
 
-The proxy already enforces HTTPS in practice — DNS only resolves what the
-rule set allows, and `registry.npmjs.org` only serves TLS. No `http.scheme`
-filter needed.
-
-### Block everything from a specific image
+### Block a specific image from making any network call
 
 ```yaml
 version: "1"
 rules:
   - id: deny-untrusted-image
-    condition: 'agent.image.startsWith("ghcr.io/legacy/")'
+    condition: 'docker.image.startsWith("ghcr.io/legacy/")'
+    priority: 10
     action: block
 ```
 
+`docker.image` is populated only at container-create time. To block all
+runtime traffic from a container with that image, pair this with an
+explicit-by-agent-name rule.
+
 ### Allow a tightly-scoped path (plaintext HTTP only)
 
-This pattern only works for plaintext HTTP. For an HTTPS API like
-`api.anthropic.com`, method and path are sealed inside the TLS tunnel and
-cannot be matched.
+This pattern only works for plaintext HTTP. For an HTTPS API,
+`http.method` and `http.path` are sealed inside the TLS tunnel and cannot
+be matched.
 
 ```yaml
 version: "1"
 rules:
   - id: allow-internal-metrics
     condition: |
-      http.scheme == "http" &&
       http.host == "metrics.internal" &&
       http.method == "GET" &&
       http.path.startsWith("/v1/metrics")
     action: allow
 ```
 
+### Full worked example
+
+See [`rules.d/examples/sentry-github-agent/`](../rules.d/examples/sentry-github-agent/)
+in the repository for a complete ruleset that locks a coding agent to
+Sentry + GitHub + apt mirrors + a single LLM provider, with named deny
+rules for git-over-HTTPS and private-network egress.
+
 ## Authoring workflow
 
 1. Edit a file in `/etc/outcall/rules.d/`.
-2. Run `outcall rules reload --dry-run` to validate.
-3. Run `outcall rules reload` to swap the active set.
-4. Run `outcall rules counters` after a few minutes to confirm the rule is
-   actually firing.
+2. Run `outcall rules reload` to validate and swap the active set atomically.
+   The response reports `files_loaded`, `rules_loaded`, and any warnings.
+   Validation failures keep the old set active and return the error.
+3. Confirm the rule is firing by watching daemon logs for the rule id
+   (set `RUST_LOG=outcalld=debug` for verbose match events).
 
-A rule that compiles but never matches is almost always wrong — the agent is
-either bypassing it (DNS instead of HTTP), or you've over-scoped the
-condition.
+A rule that compiles but never matches is almost always wrong — the agent
+is either bypassing it (DNS instead of HTTP), you've over-scoped the
+condition, **or you've referenced a field that doesn't exist in the
+binding table above** (which raises a `warn!` in the daemon log with the
+rule id and error, and is treated as no-match).
 
 ## Pitfalls
 
 - **Wildcards**: there's no `*.openai.com`. Use CEL string predicates:
   `http.host.endsWith(".openai.com") && http.host != "evil.openai.com.attacker"`.
-- **Empty rule files** are rejected — `version: "1"` with no `rules:` is a
-  parse error, on the assumption that you meant to write something.
+- **Multi-line definitions**: use folded scalars (`>-`), not literal
+  blocks (`|`). The latter preserves newlines which the CEL parser
+  rejects.
 - **`block` is implicit**. You don't need a catch-all `block` rule — the
   default verdict is `block`. Adding one anyway is fine and surfaces in
   counters.
+- **Unused definitions** are flagged at reload with a warning but do not
+  fail the load.
+- **File extension**: only `.yaml` files in the rules directory are
+  loaded. `.yml` is currently ignored.
+- **`--no-proxy`**: if the daemon is run with `--no-proxy`, no L7
+  enforcement happens — HTTP and HTTPS rules become unenforceable. Only
+  `direct_ip` allows survive. Do not deploy with `--no-proxy` unless you
+  know exactly what you're disabling.
 
-See [Edge cases](/docs/specs/003-rule-engine/edge-cases) for the exhaustive
-list of corner-case behaviours.
+See [Edge cases](/docs/specs/003-rule-engine/edge-cases) for the
+exhaustive list of corner-case behaviors.

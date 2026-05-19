@@ -1,7 +1,7 @@
 # Troubleshooting
 
 A grab-bag of failure modes and how to diagnose them. If your symptom isn't
-here, capture `outcall bridge status --json`, daemon logs, and the failing
+here, capture `outcall bridge status`, daemon logs, and the failing
 container's `nslookup` and `curl -v` output before opening an issue.
 
 ## Daemon won't start
@@ -64,9 +64,10 @@ Common causes:
 - **`resolv.conf` doesn't point at the gateway.** Make sure the container is
   started with `--dns 10.200.0.1` (or whatever your gateway is).
 - **The DNS filter isn't listening.** From the host: `sudo ss -lnup | grep :53`.
-- **No allow rule matches the query.** Run `outcall rules counters`. If the
-  count for a permissive rule is `0` while NXDOMAIN counts climb, your
-  condition probably doesn't match what the resolver actually sends — note
+- **No allow rule matches the query.** Check the daemon log for `warn!` entries
+  with the rule id — a rule that compiles but never fires usually has a typo in
+  a field name. If NXDOMAIN counts climb in the daemon log while no rule matches,
+  your condition probably doesn't match what the resolver actually sends — note
   that PTR queries look very different from A queries.
 
 ## Container resolves DNS but HTTPS fails

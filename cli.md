@@ -1,8 +1,7 @@
 # CLI reference
 
 The `outcall` binary talks to the daemon over its Unix socket. Output is
-plain text. The CLI today exposes five subcommand groups that mirror the
-daemon's subsystems:
+plain text. The CLI exposes ten subcommand groups:
 
 ```
 outcall <subcommand> [flags]
@@ -15,11 +14,11 @@ outcall <subcommand> [flags]
 | `proxy`     | Inspect the HTTP proxy. |
 | `network`   | Create, list, destroy outcall-managed Docker networks. |
 | `container` | Run, inspect, stop, remove agent containers. |
-
-> **What's not yet a CLI subcommand:** rule management. Today, rules are
-> edited as YAML in `--rules-dir` (default `/etc/outcall/rules.d`), and
-> reloaded via the host API (see [Reloading rules](#reloading-rules)
-> below). A future `outcall rules` subcommand is on the roadmap.
+| `agent`     | Boot an AI agent container for the current project. |
+| `ca`        | Manage the TLS interception CA (init, status, bundle). |
+| `daemon`    | Start, stop, or inspect the outcalld daemon container. |
+| `rules`     | Hot-reload rules from disk (`outcall rules reload`). |
+| `ui`        | Open the operator dashboard in a browser. |
 
 Global flag:
 
@@ -104,11 +103,14 @@ The container `--name` is a *suffix* — the daemon prepends
 
 `stop` sends SIGTERM, waits `--timeout` seconds (default 10), then SIGKILL.
 
-## Reloading rules (no CLI today)
+## Reloading rules
 
-Rules are reloaded by POSTing to the host API. Two ways:
+Rules are reloaded via the CLI or the host API:
 
 ```sh
+# Using the CLI (recommended)
+outcall rules reload
+
 # Using curl over the unix socket
 curl --unix-socket /run/outcall/host.sock -X POST http://localhost/api/v1/rules/reload
 

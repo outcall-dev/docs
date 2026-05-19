@@ -21,7 +21,7 @@ cd application
 cargo test --workspace --all-targets
 ```
 
-Today there are **122 unit tests** across the workspace. They cover (most-
+Today there are **124 unit tests** across the workspace. They cover (most-
 to-least populous):
 
 | File | Tests | What's covered |
@@ -66,7 +66,7 @@ You don't have to set up a runtime yourself.
 Integration tests live in `outcalld/tests/*.rs` — separate files, compiled
 against the public crate API. They exercise real syscalls.
 
-Today there are **10** integration test files:
+Today there are **11** integration test files:
 
 | File | What it exercises | Requirements |
 |---|---|---|
@@ -77,6 +77,7 @@ Today there are **10** integration test files:
 | `proxy_https_integration.rs` | HTTPS CONNECT + SNI-based BLOCK | outcalld + bridge up |
 | `proxy_dns_integration.rs` | DNS filter + proxy interaction | outcalld + bridge up |
 | `dynamic_rules_integration.rs` | Dynamic rule insert + flush | outcalld + bridge up |
+| `example_rules_validation.rs` | Validates the shipped example rulesets | None |
 | `intercept_e2e.rs` | TLS interception with generated CA | Linux |
 | `intercept_logging.rs` | No sensitive data in structured logs | Linux |
 | `mixed_modes_e2e.rs` | proxy/direct_ip/intercept in one ruleset | Linux |
@@ -90,10 +91,8 @@ sudo cargo test -p outcalld --test bridge_integration -- --nocapture
 On macOS the test is gated behind `#![cfg(target_os = "linux")]` and is
 silently skipped.
 
-> **Want to write more?** S012 (TLS interception) names a few that should
-> exist next: `intercept_e2e.rs`, `intercept_logging.rs`,
-> `mixed_modes_e2e.rs`. Drop them in the same directory; `cargo test`
-> picks them up.
+> **Want to write more?** Drop a new `.rs` file in `outcalld/tests/` and
+> `cargo test` picks it up automatically. See S012 for gaps in coverage.
 
 ## Continuous integration
 
