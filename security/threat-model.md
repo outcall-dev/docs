@@ -197,13 +197,36 @@ by the current nftables `FORWARD` chain rules, which are IPv4-only. An agent
 with the ability to configure an IPv6 route could reach the wider network
 without going through the L7 proxy or DNS filter.
 
-**Current mitigation:** Agent containers run with `cap_drop ALL`, which
-prevents `CAP_NET_ADMIN` and therefore prevents route installation. This
-mitigation is container-configuration-dependent.
+**Status (fix wave 2):** Resolved for routed IPv6. The base ruleset now
+includes `meta nfproto ipv6 drop` in the `forward` chain (both `iifname` and
+`oifname` directions), an `output_ipv6_block` chain that drops all IPv6
+leaving the bridge interface from the host, and an `input_ipv6_block` chain
+that drops unsolicited IPv6 arriving on the bridge. Routed IPv6 to public
+destinations (e.g. `2606:4700:4700::1111`) is blocked. See E2E test
+`18-ipv6-blocked.sh` (tests 1 and 2).
 
-**Roadmap:** Add `ip6` family hooks to the base nftables ruleset; add an E2E
-test that sends an actual IPv6 packet through `FORWARD` to verify the block
-is enforced.
+**Accepted limitation — link-local IPv6 multicast (ff02::/16):** Link-local
+multicast packets (e.g. `ping6 ff02::1%veth-agent` sent from within the agent
+network namespace) are delivered by the kernel's bridge flooding logic at L2,
+without traversing the `FORWARD` hook or the host-namespace `output` hook that
+the `output_ipv6_block` chain matches on (`oifname "outcall0"`). The packet
+exits via the agent-side veth peer (in the agent's network namespace), not via
+`outcall0` in the host namespace, so the nft rule never fires.
+
+This is **not considered an egress bypass** for the following reasons:
+
+1. `ff02::/16` is link-local scope — the kernel will not route these packets
+   beyond the L2 segment. They are physically confined to the outcall bridge.
+2. The only recipients of bridge-flooded multicast are other containers
+   attached to the same bridge and the host's bridge interface — not external
+   hosts.
+3. Blocking it properly would require injecting nft rules into each agent's
+   network namespace (matching `oifname "veth-agent"` inside that netns), which
+   is architecturally out of scope for the host daemon.
+
+**Operator guidance:** If you require strict isolation between containers on
+the same bridge for L2 multicast traffic, use separate outcall-managed
+networks (one bridge per agent group). This matches the guidance for BYPASS-08.
 
 ### Default bind addresses — `0.0.0.0`
 
