@@ -155,6 +155,70 @@ For the "Sentry → GitHub PR agent" scenario:
 7. Run `scripts/test-bypass.sh` after every rule-set change in staging
    before you promote.
 
+## Known limitations (current release)
+
+The following issues are acknowledged, partially mitigated, and tracked for
+resolution in the next release cycle. They are documented here so operators
+can make an informed risk decision rather than discovering them in production.
+
+### BYPASS-03a/03b + PAYLOAD-03 — Private-IP DNS passthrough
+
+The daemon DNS resolver currently passes RFC 1918, loopback, and link-local
+IP addresses returned by upstream DNS back to agent containers without
+filtering them. An attacker who can influence upstream DNS responses (e.g.
+via a compromised or malicious authoritative nameserver) can resolve a
+controlled hostname to a private IP and route traffic to internal services,
+bypassing intent-based egress rules that block private addresses at the
+nftables layer.
+
+**Current mitigation:** nftables drops direct-IP connections to RFC 1918
+ranges unless an explicit `direct_ip` rule is configured, so the bypass
+requires both DNS influence *and* a gap in nftables rules.
+
+**Roadmap:** Drop private IPs (RFC 1918, loopback, link-local) from upstream
+A/AAAA answers before returning them to containers, unless an explicit
+`allow-private` rule scope applies.
+
+### BYPASS-08 — ARP cache readable inside agent containers
+
+Agent containers can read `/proc/net/arp`, which exposes MAC and IP addresses
+of other containers sharing the same bridge segment. This is informational
+disclosure of other containers' L2 identities — it is not a firewall escape
+and does not grant the agent network access it does not already have.
+
+**Status:** Accepted limitation. This is inherent to a shared L2 bridge
+segment. Operators who require L2 isolation between containers should use
+separate outcall-managed networks (one per agent group).
+
+### BYPASS-11 — IPv6 FORWARD not blocked
+
+IPv6 traffic forwarded via a specifically-installed route is not intercepted
+by the current nftables `FORWARD` chain rules, which are IPv4-only. An agent
+with the ability to configure an IPv6 route could reach the wider network
+without going through the L7 proxy or DNS filter.
+
+**Current mitigation:** Agent containers run with `cap_drop ALL`, which
+prevents `CAP_NET_ADMIN` and therefore prevents route installation. This
+mitigation is container-configuration-dependent.
+
+**Roadmap:** Add `ip6` family hooks to the base nftables ruleset; add an E2E
+test that sends an actual IPv6 packet through `FORWARD` to verify the block
+is enforced.
+
+### Default bind addresses — `0.0.0.0`
+
+`--dns-listen` defaults to `0.0.0.0` and `--proxy-addr` defaults to
+`0.0.0.0:8080`. On hosts with multiple network interfaces, this exposes the
+daemon's DNS filter and HTTP proxy on every interface, not just the outcall
+bridge.
+
+**Recommendation:** Override both flags with the bridge IP (`10.200.0.1`)
+or the loopback address in any multi-NIC or production deployment:
+
+```
+outcalld --dns-listen 10.200.0.1 --proxy-addr 10.200.0.1:8080
+```
+
 ## Reporting a vulnerability
 
 See `SECURITY.md` at the repository root.
