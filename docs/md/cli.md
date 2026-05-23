@@ -18,6 +18,7 @@ outcall <subcommand> [flags]
 | `ca`        | Manage the TLS interception CA (init, status, bundle). |
 | `daemon`    | Start, stop, or inspect the outcalld daemon container. |
 | `rules`     | Hot-reload rules from disk (`outcall rules reload`). |
+| `requests`  | Review, approve, or reject agent-submitted rule requests. |
 | `ui`        | Open the operator dashboard in a browser. |
 
 Global flag:
@@ -129,6 +130,21 @@ Listing currently loaded rules:
 ```sh
 curl --unix-socket /run/outcall/host.sock http://localhost/api/v1/rules | jq .
 ```
+
+## Rule requests
+
+Agents may submit proposed rule files through the agent API. Those rules are
+queued for operator review and never become active until approved.
+
+```sh
+outcall requests list
+outcall requests approve rr-aabbcc112233
+outcall requests reject rr-aabbcc112233 --reason "too broad"
+```
+
+`approve` writes the submitted rule file through the host API and reloads the
+active rule set atomically. `reject` records the reason so the agent can poll
+the request status and report it to the operator.
 
 ## Logging
 

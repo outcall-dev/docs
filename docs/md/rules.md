@@ -191,6 +191,18 @@ egress:
 
 `direct_ip` defaults to ports `[80, 443]` when `ports:` is omitted.
 
+`allow_private_ips: true` may be set under `egress:` for rules that
+intentionally target internal services. By default, upstream DNS A/AAAA answers
+for private, loopback, link-local, ULA, multicast, and IPv4-mapped addresses are
+stripped to prevent DNS rebinding. If all address answers are stripped, the DNS
+filter returns SERVFAIL to avoid negatively caching a policy decision as a
+nonexistent domain.
+
+For `direct_ip` rules that match AAAA records, the host kernel must support IPv6
+nftables expressions (`ip6 saddr/daddr`) so the daemon can insert dynamic IPv6
+allow rules. If insertion fails, the daemon logs a warning and leaves the
+traffic blocked.
+
 There is **no TLS interception mode** in the current release. Body-content
 matching requires a CA-issued certificate to terminate TLS — not yet
 shipped. If you need that capability, file an issue.
@@ -273,6 +285,10 @@ rules for git-over-HTTPS and private-network egress.
 3. Confirm the rule is firing by watching daemon logs for the rule id
    (set `RUST_LOG=outcalld=debug` for verbose match events).
 
+Rule reloads are atomic at the rule-set pointer level. New requests use the
+newly loaded rule set after a successful reload; in-flight requests continue
+with whichever rule set their handler had already bound.
+
 A rule that compiles but never matches is almost always wrong — the agent
 is either bypassing it (DNS instead of HTTP), you've over-scoped the
 condition, **or you've referenced a field that doesn't exist in the
@@ -291,12 +307,11 @@ rule id and error, and is treated as no-match).
   counters.
 - **Unused definitions** are flagged at reload with a warning but do not
   fail the load.
-- **File extension**: only `.yaml` files in the rules directory are
-  loaded. `.yml` is currently ignored.
-- **`--no-proxy`**: if the daemon is run with `--no-proxy`, no L7
-  enforcement happens — HTTP and HTTPS rules become unenforceable. Only
-  `direct_ip` allows survive. Do not deploy with `--no-proxy` unless you
-  know exactly what you're disabling.
+- **File extension**: `.yaml` and `.yml` files in the rules directory are
+  loaded.
+- **`--no-proxy`**: startup fails if any loaded allow rule requires
+  `egress.mode: proxy`. Direct-IP-only deployments may use `--no-proxy`, but
+  host/SNI HTTP and HTTPS policy requires the proxy.
 
 See [Edge cases](/docs/specs/003-rule-engine/edge-cases) for the
 exhaustive list of corner-case behaviors.

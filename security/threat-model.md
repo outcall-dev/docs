@@ -69,7 +69,7 @@ below):
 |---|---|---|
 | T-1 | Agent connects to an arbitrary host on the public internet | DNS filter denies the lookup unless a rule allows it; nftables drops direct-IP TCP unless `direct_ip` egress is configured. |
 | T-2 | Agent connects to a different agent's container | Forward chain drops bridge-to-bridge traffic unless explicitly allowed; documented as default behavior. |
-| T-3 | Agent connects to a host service on a private RFC1918 address | DNS rebinding check warns (H-2 — will block in next pass); nftables drops direct hits. |
+| T-3 | Agent connects to a host service on a private RFC1918 address | DNS rebinding is blocked by stripping private A/AAAA answers unless the matching rule opts into `allow_private_ips`; nftables drops direct hits. |
 | T-4 | Agent in container A claims to be agent B in API calls | Identity is derived from SO_PEERCRED, not from any agent-supplied header or env var. Agents cannot self-identify. |
 | T-5 | Agent modifies its own iptables/nftables to grant itself access | Verified: host enforcement wins. See `14-security-boundary.sh`. |
 | T-6 | Agent sniffs another agent's traffic on the bridge | veth + bridge isolates broadcast domains per Docker network. No `tcpdump`-style leakage to peers without explicit hairpin config. |
@@ -92,8 +92,8 @@ This is just as important. Out of scope:
 | N-6 | Agent makes HTTPS to an allowed host with method/path/body the operator did not intend | Without TLS interception (intentionally not implemented), `http.method` / `http.path` / `http.body` are not visible inside the encrypted tunnel. Rule scope is at `http.host` (SNI). |
 | N-7 | Supply chain attack on a crate Outcall depends on | `cargo audit` runs in CI; we publish a Cargo.lock with the release. Verify the binary against the signed release (I-2). |
 | N-8 | Agent uses an allowed destination as a covert channel (timing, DNS queries, request-volume encoding) | Detecting covert channels is not Outcall's job. If you need this, layer a monitoring tool that watches request rates and timings. |
-| N-9 | Operator runs outcalld with `--no-proxy` and expects HTTPS-aware rules to enforce | H-3: this will be a startup error in the next release. Until then, don't do this. |
-| N-10 | Agent uses an outbound port that the rule engine evaluates as "allowed by hostname" but the protocol is not HTTP/HTTPS (e.g. `CONNECT example.com:25`) | M-3: tightening this is queued. Today, write your rules to restrict ports explicitly: `dns.query == "x.example" && network.port == 443`. |
+| N-9 | Operator runs outcalld with `--no-proxy` and expects HTTPS-aware rules to enforce | Startup fails if loaded rules require `egress.mode: proxy`; direct-IP-only deployments must avoid proxy rules explicitly. |
+| N-10 | Agent uses an outbound port that the rule engine evaluates as "allowed by hostname" but the protocol is not HTTP/HTTPS (e.g. `CONNECT example.com:25`) | CONNECT rejects known non-HTTPS service ports and exposes `network.port` to rule evaluation. Continue to restrict ports explicitly in rules where possible. |
 
 ## Attacker model
 
@@ -163,21 +163,15 @@ can make an informed risk decision rather than discovering them in production.
 
 ### BYPASS-03a/03b + PAYLOAD-03 — Private-IP DNS passthrough
 
-The daemon DNS resolver currently passes RFC 1918, loopback, and link-local
-IP addresses returned by upstream DNS back to agent containers without
-filtering them. An attacker who can influence upstream DNS responses (e.g.
-via a compromised or malicious authoritative nameserver) can resolve a
-controlled hostname to a private IP and route traffic to internal services,
-bypassing intent-based egress rules that block private addresses at the
-nftables layer.
+The daemon now strips private, loopback, link-local, ULA, multicast, and
+IPv4-mapped addresses from upstream A/AAAA DNS answers before returning them to
+containers. If every address answer is stripped, the DNS filter returns
+SERVFAIL to avoid negatively caching a policy decision as a nonexistent domain.
+Rules that intentionally target internal services must opt in with
+`egress.allow_private_ips: true`.
 
-**Current mitigation:** nftables drops direct-IP connections to RFC 1918
-ranges unless an explicit `direct_ip` rule is configured, so the bypass
-requires both DNS influence *and* a gap in nftables rules.
-
-**Roadmap:** Drop private IPs (RFC 1918, loopback, link-local) from upstream
-A/AAAA answers before returning them to containers, unless an explicit
-`allow-private` rule scope applies.
+**Status:** Resolved for DNS-mediated rebinding. nftables still blocks direct
+private-IP connections unless an explicit `direct_ip` rule allows them.
 
 ### BYPASS-08 — ARP cache readable inside agent containers
 
@@ -228,15 +222,14 @@ This is **not considered an egress bypass** for the following reasons:
 the same bridge for L2 multicast traffic, use separate outcall-managed
 networks (one bridge per agent group). This matches the guidance for BYPASS-08.
 
-### Default bind addresses — `0.0.0.0`
+### Default bind addresses — bridge IP
 
-`--dns-listen` defaults to `0.0.0.0` and `--proxy-addr` defaults to
-`0.0.0.0:8080`. On hosts with multiple network interfaces, this exposes the
-daemon's DNS filter and HTTP proxy on every interface, not just the outcall
-bridge.
+`--dns-listen` defaults to `10.200.0.1` and `--proxy-addr` defaults to
+`10.200.0.1:8080`. This keeps the DNS filter and HTTP proxy reachable from the
+managed bridge by default instead of all host interfaces.
 
-**Recommendation:** Override both flags with the bridge IP (`10.200.0.1`)
-or the loopback address in any multi-NIC or production deployment:
+**Recommendation:** If you override `--subnet-block`, override both flags with
+the matching bridge IP:
 
 ```
 outcalld --dns-listen 10.200.0.1 --proxy-addr 10.200.0.1:8080

@@ -11,11 +11,11 @@ configured `--rules-dir`.
 | `--socket <path>` | `/run/outcall/host.sock` | Operator API Unix socket (host CLI + UI). |
 | `--bridge <name>` | `outcall0` | Linux bridge interface name. Created if missing. |
 | `--rules-dir <path>` | `/etc/outcall/rules.d` | Directory of YAML rule files. |
-| `--dns-listen <ip>` | `0.0.0.0` | DNS filter bind address (IP only). |
+| `--dns-listen <ip>` | `10.200.0.1` | DNS filter bind address (IP only). |
 | `--dns-port <port>` | `53` | DNS filter bind port. |
 | `--dns-upstream <list>` | from `/etc/resolv.conf` | Comma-separated upstream resolvers (`IP[:port]`). |
-| `--proxy-addr <host:port>` | `0.0.0.0:8080` | HTTP proxy bind address. |
-| `--no-proxy` | _off_ | Disable the HTTP proxy entirely. |
+| `--proxy-addr <host:port>` | `10.200.0.1:8080` | HTTP proxy bind address. |
+| `--no-proxy` | _off_ | Disable the HTTP proxy entirely. Startup fails if loaded allow rules require `egress.mode: proxy`. |
 | `--agent-socket-host-path <path>` | `/run/outcall/agent.sock` | Agent API Unix socket (one shared socket per host). |
 | `--shim-host-path <path>` | `/usr/local/bin/outcall-agent` | Path to the `outcall-agent` shim binary; bind-mounted into agent containers. |
 | `--agent-timeout-secs <n>` | `5` | Server-side rule-evaluation timeout for agent permission checks. |
@@ -23,9 +23,9 @@ configured `--rules-dir`.
 | `--agent-rule-rate <count/seconds>` | `10/60` | Sliding-window rate limit for rule submissions per container. |
 | `--subnet-block <cidr>` | `10.200.0.0/16` | RFC 1918 supernet for `/24` per-network allocation. |
 
-If port `8080` is bound on the host already, pass `--no-proxy` or pick a
-free port with `--proxy-addr 0.0.0.0:18080`. Containers then need their
-`HTTP_PROXY` env vars updated to match.
+If port `8080` is bound on the bridge address already, pick a free port with
+`--proxy-addr 10.200.0.1:18080`. Containers then need their `HTTP_PROXY` env
+vars updated to match. Use `--no-proxy` only for direct-IP-only rule sets.
 
 ### TLS interception flags (S011 — not yet implemented)
 

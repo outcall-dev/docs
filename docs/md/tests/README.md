@@ -1,5 +1,7 @@
 # E2E Test Reference
 
+![Outcall Banner](https://github.com/outcall-dev/assets/raw/main/c8e1aa9c-60b1-4cf4-9bef-0e640f9b5490.png)
+
 Each test runs inside a privileged container with a network namespace
 simulating an agent container attached to the outcall bridge.
 

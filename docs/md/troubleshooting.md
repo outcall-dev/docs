@@ -23,8 +23,9 @@ prefer disabling resolved.
 
 ### `bind: address already in use` on port 8080
 
-The HTTP proxy. Either move it (`--proxy-addr 0.0.0.0:18080`) or disable it
-(`--no-proxy` — only safe if you have other policy at layer 7).
+The HTTP proxy. Move it with `--proxy-addr 10.200.0.1:18080` and update agent
+`HTTP_PROXY` / `HTTPS_PROXY` values. Use `--no-proxy` only with direct-IP-only
+rule sets; startup fails if loaded allow rules require `egress.mode: proxy`.
 
 ### `Operation not permitted` creating the bridge
 
