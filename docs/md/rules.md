@@ -271,8 +271,8 @@ rules:
 
 ### Full worked example
 
-See [`rules.d/examples/sentry-github-agent/`](../rules.d/examples/sentry-github-agent/)
-in the repository for a complete ruleset that locks a coding agent to
+See [`rules.d/examples/sentry-github-agent/`](https://github.com/outcall-dev/root/tree/main/rules.d/examples/sentry-github-agent)
+in `outcall-dev/root` for a complete ruleset that locks a coding agent to
 Sentry + GitHub + apt mirrors + a single LLM provider, with named deny
 rules for git-over-HTTPS and private-network egress.
 
