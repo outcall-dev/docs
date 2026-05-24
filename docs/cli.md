@@ -1,7 +1,7 @@
 # CLI reference
 
 The `outcall` binary talks to the daemon over its Unix socket. Output is
-plain text. The CLI exposes ten subcommand groups:
+plain text. The CLI exposes eleven subcommand groups:
 
 ```
 outcall <subcommand> [flags]
