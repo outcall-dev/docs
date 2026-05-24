@@ -61,7 +61,7 @@ A prebuilt image will be published once releases land. For now, build from
 source and run it as a container:
 
 ```sh
-git clone https://github.com/Outcall-dev/outcall.git
+git clone https://github.com/outcall-dev/outcall.git
 cd outcall
 docker build -f Dockerfile.test -t outcall-e2e .
 
@@ -89,7 +89,7 @@ Required mounts:
 Linux:
 
 ```sh
-git clone https://github.com/Outcall-dev/outcall.git
+git clone https://github.com/outcall-dev/outcall.git
 cd outcall
 cargo build --workspace --release
 sudo install -m 0755 target/release/outcalld /usr/local/sbin/outcalld

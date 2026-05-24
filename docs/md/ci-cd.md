@@ -17,7 +17,7 @@ Note: `outcalld` requires Linux for bridge and nftables management (`#[cfg(targe
 
 Each artifact is published to the GitHub Release and accompanied by a `SHA256SUMS.txt`.
 
-The container image is pushed to `ghcr.io/Outcall-dev/outcall` with the following tags:
+The container image is pushed to `ghcr.io/outcall-dev/outcall` with the following tags:
 - `vX.Y.Z` — exact version
 - `sha-{sha}` — commit SHA
 - `latest` — most recent tag
@@ -47,7 +47,7 @@ Each crate carries its own version in its `Cargo.toml` (e.g. `application/outcal
 Built from `application/Dockerfile.test` with multi-arch support (`linux/amd64`, `linux/arm64`).
 
 ```bash
-docker run ghcr.io/Outcall-dev/outcall:latest --help
+docker run ghcr.io/outcall-dev/outcall:latest --help
 ```
 
 ## Secrets

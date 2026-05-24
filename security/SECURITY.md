@@ -3,7 +3,7 @@
 ## Supported versions
 
 Outcall is pre-1.0. Only the latest tagged release on
-`Outcall-dev/outcall` receives security updates. There are no LTS
+`outcall-dev/outcall` receives security updates. There are no LTS
 branches yet.
 
 | Version | Supported |
@@ -28,7 +28,7 @@ If you believe you have found a security issue in Outcall, please
 
 If you do not get a reply within 5 business days, please escalate by
 opening a GitHub Security Advisory at
-<https://github.com/Outcall-dev/outcall/security/advisories>.
+<https://github.com/outcall-dev/outcall/security/advisories>.
 
 ## What's in scope
 
