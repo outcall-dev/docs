@@ -22,7 +22,7 @@ docker run -d --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v /run/outcall:/run/outcall \
   -v /etc/outcall:/etc/outcall \
-  outcall-e2e \
+  outcall-daemon \
   outcalld --bridge outcall0
 ```
 

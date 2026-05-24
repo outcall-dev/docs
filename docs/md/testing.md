@@ -166,7 +166,7 @@ not unit testing — it's a "does the whole binary actually do the thing on a
 fresh host" check.
 
 ```sh
-make build          # one-time: build the outcall-e2e Docker image (~2 min)
+make build          # one-time: build the outcall-daemon Docker image (~2 min)
 make start          # creates network, starts outcalld in a container
 make test           # runs HTTP / ICMP / DNS smoke tests against an Alpine agent
 make test-e2e       # full E2E test suite from scripts/e2e/tests/
@@ -175,7 +175,7 @@ make stop           # tear everything down
 
 | Make target | What it does |
 |---|---|
-| `make build` | Build `outcall-e2e` image |
+| `make build` | Build `outcall-daemon` image |
 | `make start` / `make stop` | Daemon lifecycle in Docker |
 | `make status` | `outcall bridge status` inside the daemon container |
 | `make agent` | Interactive Alpine shell on the outcall network |
