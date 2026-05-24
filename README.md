@@ -7,7 +7,7 @@
 [![CI](https://github.com/outcall-dev/docs/actions/workflows/ci.yml/badge.svg)](https://github.com/outcall-dev/docs/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/badge/version-0.1.8-blue.svg)](https://github.com/outcall-dev/docs/releases)
 [![Docs](https://img.shields.io/badge/docs-available-brightgreen.svg)](https://outcall-dev.github.io/docs/)
-[![Docker](https://img.shields.io/docker/pulls/outcall-dev/outcall.svg)](https://hub.docker.com/r/outcall-dev/outcall)
+[![Container](https://img.shields.io/badge/container-ghcr.io%2Foutcall--dev%2Foutcall-blue.svg)](https://github.com/outcall-dev/outcall/pkgs/container/outcall)
 
 ## Contents
 
