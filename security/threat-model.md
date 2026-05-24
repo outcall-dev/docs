@@ -73,7 +73,7 @@ below):
 | T-4 | Agent in container A claims to be agent B in API calls | Identity is derived from SO_PEERCRED, not from any agent-supplied header or env var. Agents cannot self-identify. |
 | T-5 | Agent modifies its own iptables/nftables to grant itself access | Verified: host enforcement wins. See `14-security-boundary.sh`. |
 | T-6 | Agent sniffs another agent's traffic on the bridge | veth + bridge isolates broadcast domains per Docker network. No `tcpdump`-style leakage to peers without explicit hairpin config. |
-| T-7 | Agent connects to a "good" host but sends data to an evil host via Host-header smuggling | (HTTPS) SNI mismatch re-evaluation closes the tunnel. (HTTP) M-2 will reject mismatched Host headers. |
+| T-7 | Agent connects to a "good" host but sends data to an evil host via Host-header smuggling | (HTTPS) SNI mismatch re-evaluation closes the tunnel. (HTTP) Mismatched Host header vs absolute-form URI authority is rejected (originally tracked as M-2 in the May 14 audit; shipped 2026-05-20). |
 | T-8 | Agent overwhelms the daemon | Rate limits on agent API; semaphore-bounded proxy accepts; capped DNS cache; 50ms rule-eval budget warns. |
 | T-9 | Agent loads its own DNS resolver (DoH/DoT) | Bridge drops all egress except via the L7 proxy / configured direct_ip allows. The agent cannot reach 8.8.8.8:443 unless an allow rule exists, and the cleartext path to a DoT resolver on :853 is also blocked. |
 | T-10 | Operator misconfigures rules so a typo silently fails | C-1 / H-1 (audit) will surface CEL errors as `warn!` log entries with the rule id; dead rules are visible in the daemon log. |
