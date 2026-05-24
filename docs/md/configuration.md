@@ -29,11 +29,12 @@ vars updated to match. Use `--no-proxy` only for direct-IP-only rule sets.
 
 ### TLS interception flags (S011 — not yet implemented)
 
-> **Not yet implemented.** S011 is in development. The flags below are
-> accepted by the daemon CLI (they parse without error) but TLS interception
-> is a no-op in the current release — no leaf certificates are minted, no
-> bodies are buffered, and `egress.mode: intercept` is rejected at rule
-> reload time. Do not rely on these flags for enforcement.
+> **Not yet implemented.** S011 is specified but intentionally deferred — see
+> `docs/security/threat-model.md`. The flags below are accepted by the daemon
+> CLI (they parse without error) but TLS interception is a no-op in the
+> current release — no leaf certificates are minted, no bodies are buffered,
+> and `egress.mode: intercept` is rejected at rule reload time. Do not rely
+> on these flags for enforcement.
 
 | Flag | Default | Purpose (when S011 ships) |
 |---|---|---|
