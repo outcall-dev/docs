@@ -59,7 +59,7 @@ curl --unix-socket /run/outcall/host.sock http://_/api/v1/containers
 | **Networks** | `GET /api/v1/networks` | Each `outcall-*` network, its subnet, gateway, and connected containers |
 | **Containers** | `GET /api/v1/containers` | All `managed-by=outcalld` agent containers with state, image, network, IP |
 | **Rules** | `GET /api/v1/rules` | Currently loaded rules grouped by file, with their CEL conditions |
-| **Rule requests** | `GET /api/v1/rule-requests` | Pending rule requests from agents waiting for operator approval |
+| **Rule requests** | `GET /api/v1/requests/rules` | Pending rule requests from agents waiting for operator approval |
 | **DNS cache** | `GET /api/v1/dns/cache?entries=true` | Cached resolutions with TTL and hit-rate stats |
 
 The dashboard polls these endpoints on a 5-second interval. WebSocket-based
@@ -72,10 +72,10 @@ When an agent calls `POST /v1/requests/rules` on the agent socket, the
 request lands in the queue visible on the dashboard's **Rule requests**
 view. Each row has **Approve** and **Reject** buttons that call:
 
-- `POST /api/v1/rule-requests/<id>/approve` — writes a new rule into
+- `POST /api/v1/requests/rules/<id>/approve` — writes a new rule into
   `rules.d/` and triggers a reload, exactly as if you had run
   `outcall rules reload` after editing the file by hand.
-- `POST /api/v1/rule-requests/<id>/reject` — drops the request without a
+- `POST /api/v1/requests/rules/<id>/reject` — drops the request without a
   rule change.
 
 Note: agents submit rule requests to the **agent socket** at
