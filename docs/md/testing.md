@@ -199,8 +199,8 @@ Drop a numbered `.sh` script in `scripts/e2e/tests/`. Each script gets:
 | `AGENT_IP` | `10.99.0.2` | Agent IP inside the namespace |
 | `TARGET_IP` | (dynamic) | Container's eth0 IP (forwarded target) |
 
-Exit `0` = pass, non-zero = fail. Existing scripts are documented in
-[the test plans](/docs/guides/tests).
+Exit `0` = pass, non-zero = fail. The existing E2E scripts live in
+[`outcall-dev/root/scripts/e2e/tests/`](https://github.com/outcall-dev/root/tree/main/scripts/e2e/tests).
 
 ## Where to dig deeper
 
