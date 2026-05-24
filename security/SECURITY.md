@@ -73,5 +73,7 @@ If you've already publicly disclosed before contacting us, that's fine
 ## Auditing history
 
 The most recent internal audit is at
-[`docs/security/audit-2026-05-14.md`](./audit-2026-05-14.md). The
-threat model is at [`docs/security/threat-model.md`](./threat-model.md).
+[`security/audit-2026-05-20.md`](./audit-2026-05-20.md);
+[`security/audit-2026-05-14.md`](./audit-2026-05-14.md) is the prior
+audit one cycle back. The threat model is at
+[`security/threat-model.md`](./threat-model.md).
