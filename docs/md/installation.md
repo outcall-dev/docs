@@ -18,6 +18,43 @@ The daemon does not need root if it has the capabilities above. In practice,
 running it as a Docker container with `--cap-add` and `--network host` is the
 recommended path.
 
+### Kernel prerequisite — `br_netfilter`
+
+Threat **T-2 (agent-to-agent isolation)** is enforced by the nftables FORWARD
+chain. The chain only sees L2 bridge traffic if the `br_netfilter` kernel
+module is loaded and `net.bridge.bridge-nf-call-iptables=1`. Without it,
+two containers on the same bridge can reach each other directly at L2 and
+T-2 silently fails.
+
+The daemon attempts to flip the sysctl on startup, but loading the module
+itself requires `CAP_SYS_MODULE` — which the recommended container deploy
+does not grant. **Load the module on the host before starting the daemon:**
+
+```sh
+# One-shot for the current boot
+sudo modprobe br_netfilter
+sudo sysctl -w net.bridge.bridge-nf-call-iptables=1
+sudo sysctl -w net.bridge.bridge-nf-call-ip6tables=1
+
+# Persist across reboots
+echo br_netfilter | sudo tee /etc/modules-load.d/outcall.conf
+sudo tee /etc/sysctl.d/99-outcall.conf <<'EOF'
+net.bridge.bridge-nf-call-iptables = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+EOF
+```
+
+Verify after boot:
+
+```sh
+lsmod | grep br_netfilter
+cat /proc/sys/net/bridge/bridge-nf-call-iptables   # → 1
+```
+
+If you cannot enable `br_netfilter` (locked-down kernel, hardened host),
+treat T-2 as out of scope and put each agent on its own outcall-managed
+network — bridge separation gives you isolation without relying on FORWARD.
+
 ## Install via Docker (recommended)
 
 A prebuilt image will be published once releases land. For now, build from

@@ -7,6 +7,11 @@ and nothing else.
 > nftables rules — both require Linux. macOS hosts can build the workspace
 > and run the CLI, but the daemon will not start.
 
+> **Load `br_netfilter` on the host before starting the daemon**, otherwise
+> agent-to-agent isolation (T-2) is silently unenforced. See
+> [Installation → Kernel prerequisite](installation.md#kernel-prerequisite--br_netfilter).
+> Short form: `sudo modprobe br_netfilter && sudo sysctl -w net.bridge.bridge-nf-call-iptables=1`.
+
 ## 1. Start the daemon
 
 ```sh

@@ -68,7 +68,7 @@ below):
 | # | Threat | Mitigation |
 |---|---|---|
 | T-1 | Agent connects to an arbitrary host on the public internet | DNS filter denies the lookup unless a rule allows it; nftables drops direct-IP TCP unless `direct_ip` egress is configured. |
-| T-2 | Agent connects to a different agent's container | Forward chain drops bridge-to-bridge traffic unless explicitly allowed; documented as default behavior. |
+| T-2 | Agent connects to a different agent's container | Forward chain drops bridge-to-bridge traffic unless explicitly allowed; documented as default behavior. **Requires `br_netfilter` loaded on the host kernel (see install guide); without it, L2 bridge traffic bypasses the FORWARD hook.** |
 | T-3 | Agent connects to a host service on a private RFC1918 address | DNS rebinding is blocked by stripping private A/AAAA answers unless the matching rule opts into `allow_private_ips`; nftables drops direct hits. |
 | T-4 | Agent in container A claims to be agent B in API calls | Identity is derived from SO_PEERCRED, not from any agent-supplied header or env var. Agents cannot self-identify. |
 | T-5 | Agent modifies its own iptables/nftables to grant itself access | Verified: host enforcement wins. See `14-security-boundary.sh`. |
