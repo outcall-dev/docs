@@ -187,6 +187,17 @@ make stop           # tear everything down
 the test scripts in `scripts/e2e/tests/` with the right capabilities
 (`NET_ADMIN`, `NET_RAW`, `SYS_ADMIN`, `net.ipv4.ip_forward=1`).
 
+### Specialized suites
+
+Beyond the numbered E2E suite, the `Makefile` ships focused suites that each
+build the image if needed and run a dedicated script under `scripts/`:
+
+| Make target | What it does |
+|---|---|
+| `make test-bypass` | Security bypass suite — attempts to escape the egress controls |
+| `make test-payloads` | Payload attack suite — malformed protocol attacks |
+| `make test-tls-intercept` | TLS interception tests (requires a CA + `mode: intercept` configured) |
+
 ### Adding an E2E test
 
 Drop a numbered `.sh` script in `scripts/e2e/tests/`. Each script gets:
