@@ -164,9 +164,8 @@ Logs go to stderr in `tracing-subscriber`'s text format.
 | Code | Meaning |
 |---|---|
 | `0` | Success. |
-| `1` | Generic error. |
+| `1` | Any error, including a daemon that is unreachable (socket missing, permission denied) or any failed operation. |
 | `2` | Bad arguments (clap). |
-| `5` | Daemon unreachable (socket missing, permission denied). |
 
 ## Examples
 
