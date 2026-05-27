@@ -123,8 +123,9 @@ outcall bridge status
 # nftables:  active
 ```
 
-If you see `daemon unreachable`, check the socket path
-(`/run/outcall/host.sock`) and the daemon's permission to bind it.
+If the CLI reports `cannot connect to outcalld at … — is it running?`,
+check the socket path (`/run/outcall/host.sock`) and the daemon's
+permission to bind it.
 
 ## Next steps
 
