@@ -24,6 +24,7 @@ simulating an agent container attached to the outcall bridge.
 | 15 | trusted-repos | Positive | Allow list for trusted registries works end-to-end |
 | 16 | hostname-ip-allowlist | Positive | DNS + nftables allow for a multi-IP hostname |
 | 17 | host-cli-restrictions | Security | CLI commands are restricted to host socket |
+| 18 | ipv6-blocked | Negative | Outbound IPv6 (ICMPv6) is dropped by the FORWARD chain |
 
 ## Running
 
