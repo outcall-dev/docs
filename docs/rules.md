@@ -33,9 +33,10 @@ rules:
 
 `definitions:` lets you name a sub-expression and reuse it across rules.
 References use the `$name` syntax — the daemon expands them recursively
-before CEL compilation. Use YAML folded scalars (`>-`) for multi-line
-definitions; plain literal blocks (`|`) keep newlines which the CEL parser
-rejects.
+(wrapping each in parentheses) before CEL compilation. Multi-line
+definitions work with either YAML scalar style — CEL treats newlines as
+insignificant whitespace. The example below uses a folded scalar (`>-`)
+because it reads cleanly and drops the trailing newline.
 
 ```yaml
 version: "1"
@@ -299,9 +300,11 @@ rule id and error, and is treated as no-match).
 
 - **Wildcards**: there's no `*.openai.com`. Use CEL string predicates:
   `http.host.endsWith(".openai.com") && http.host != "evil.openai.com.attacker"`.
-- **Multi-line definitions**: use folded scalars (`>-`), not literal
-  blocks (`|`). The latter preserves newlines which the CEL parser
-  rejects.
+- **Multi-line expressions**: both literal (`|`) and folded (`>-`) YAML
+  scalars work — CEL treats embedded newlines as insignificant whitespace.
+  The shipped example rules use literal blocks for `condition:`; folded
+  scalars read cleanly for `definitions:` since they drop the trailing
+  newline.
 - **`block` is implicit**. You don't need a catch-all `block` rule — the
   default verdict is `block`. Adding one anyway is fine and surfaces in
   counters.
