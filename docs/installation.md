@@ -73,8 +73,13 @@ docker run -d --rm \
   -v /run/outcall:/run/outcall \
   -v /etc/outcall:/etc/outcall \
   outcall-e2e \
-  outcalld --bridge outcall0
+  ./target/debug/outcalld --bridge outcall0
 ```
+
+`Dockerfile.test` is a `cargo build --workspace` (debug) image and does not put
+the binaries on `PATH`, so `outcalld` is invoked by its build path from the
+image's `/app` workdir. A release image with `outcalld` on `PATH` ships with
+the first published release.
 
 Required mounts:
 
