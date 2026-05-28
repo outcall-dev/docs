@@ -11,9 +11,9 @@
 
 ## Contents
 
-Documentation source files are organized under `docs/` (see [docs/md/](docs/md/)).
+Documentation source files are organized under [docs/](docs/).
 
 | Section | Description |
 |---------|-------------|
-| [docs/md/](docs/md/) | All operator documentation — CLI, rules, security, installation |
-| [docs/docs/tests/](docs/docs/tests/) | E2E test reference and descriptions |
+| [docs/](docs/) | All operator documentation — CLI, rules, configuration, installation |
+| [docs/tests/](docs/tests/) | E2E test reference and descriptions |
