@@ -36,11 +36,14 @@ metal, run as root or set capabilities on the binary:
 sudo setcap cap_net_admin,cap_sys_admin+ep /usr/local/sbin/outcalld
 ```
 
-## CLI says `daemon unreachable`
+## CLI says `cannot connect to outcalld`
 
 ```sh
 outcall bridge status
-# error: daemon unreachable (/run/outcall/host.sock: No such file or directory)
+# Error: cannot connect to outcalld at /run/outcall/host.sock — is it running?
+#
+# Caused by:
+#     No such file or directory (os error 2)
 ```
 
 Means one of:
