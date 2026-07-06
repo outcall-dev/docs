@@ -3,9 +3,13 @@
 The `outcall` binary talks to the daemon over its Unix socket. Output is
 plain text. The CLI exposes these top-level commands:
 
-```
+```sh
+outcall
 outcall <subcommand> [flags]
 ```
+
+Running bare `outcall` prints the recommended first command for the current
+project and host, followed by the shortest useful onboarding commands.
 
 | Subcommand group | Purpose |
 |---|---|
@@ -51,7 +55,7 @@ outcall recipe test <recipe>
 outcall recipe run <recipe>
 ```
 
-Use `outcall setup <recipe>` if you want the scaffold/check/smoke portion
+Use `outcall setup [recipe]` if you want the scaffold/check/smoke portion
 without launching the long-lived agent container yet.
 
 ## claude / codex
@@ -83,11 +87,12 @@ matches one of them. Selection order is:
 ## setup
 
 ```sh
-outcall setup <claude|codex> [--no-build] [--auth auto|copy|mount|env-only]
+outcall setup [claude|codex] [--no-build] [--auth auto|copy|mount|env-only]
 ```
 
 This runs the scaffold/check/smoke sequence without launching the long-lived
-agent container:
+agent container. Without an explicit provider, it uses the same saved
+default/project-context/host-auth detection order as `outcall start`:
 
 ```sh
 outcall init <recipe>
@@ -95,7 +100,7 @@ outcall doctor <recipe>
 outcall recipe test <recipe>
 ```
 
-Use `outcall run <recipe>` after `setup` passes.
+Use `outcall start` or `outcall run <recipe>` after `setup` passes.
 
 ## bridge
 

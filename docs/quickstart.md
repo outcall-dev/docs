@@ -29,8 +29,12 @@ anonymous registry pull.
 Start with the default path:
 
 ```sh
+outcall
 outcall start
 ```
+
+Running bare `outcall` prints the recommended first command for the current
+project and host, plus the next few useful commands.
 
 If Outcall cannot infer the provider cleanly, choose one explicitly:
 
@@ -82,9 +86,12 @@ finds one clear provider signal. It prefers, in order:
 The intermediate shortcut is:
 
 ```sh
-outcall setup <recipe>
-outcall recipe run <recipe>
+outcall setup
+outcall start
 ```
+
+If you want to pin the provider during setup, use `outcall setup claude` or
+`outcall setup codex`.
 
 `outcall doctor <recipe>` now checks the usual first-run failures directly:
 Linux host support, Docker daemon availability, `/tmp/outcall`, and the

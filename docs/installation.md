@@ -19,8 +19,12 @@ release artifacts instead of relying on an initial registry pull.
 Then, from the root of the project you want to isolate:
 
 ```sh
+outcall
 outcall start
 ```
+
+Running bare `outcall` prints the recommended first command for the current
+project and host.
 
 If Outcall cannot infer the provider cleanly, choose one explicitly:
 
