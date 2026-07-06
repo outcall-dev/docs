@@ -1,7 +1,6 @@
 # Quickstart
 
-Five minutes to a running agent container that can reach exactly one host
-and nothing else.
+Five minutes to an isolated Claude Code or Codex container.
 
 > **Linux only.** `outcalld` manages a kernel network bridge and applies
 > nftables rules — both require Linux. macOS hosts can build the workspace
@@ -11,6 +10,45 @@ and nothing else.
 > agent-to-agent isolation (T-2) is silently unenforced. See
 > [Installation → Kernel prerequisite](installation.md#kernel-prerequisite--br_netfilter).
 > Short form: `sudo modprobe br_netfilter && sudo sysctl -w net.bridge.bridge-nf-call-iptables=1`.
+
+## Fast path: Claude Code or Codex
+
+If your goal is "put Claude Code or Codex in a default-deny container without
+thinking about bridge internals first", start here.
+
+Claude Code:
+
+```sh
+outcall init claude
+outcall doctor claude
+outcall recipe test claude
+outcall recipe run claude
+```
+
+Codex CLI:
+
+```sh
+outcall init codex
+outcall doctor codex
+outcall recipe test codex
+outcall recipe run codex
+```
+
+What these do:
+
+- `init` writes `.outcall/` scaffolding for the current project.
+- `doctor` checks Docker, generated files, auth candidates, and project context.
+- `recipe test` builds the image, stages auth, ensures the daemon and default
+  network exist, and runs a smoke container with the recipe entrypoint.
+- `recipe run` starts the actual isolated agent container.
+
+Recipes intentionally avoid mounting your whole home directory. By default they
+copy only the selected provider auth/config paths into `.outcall/auth/<id>/home`.
+
+## Manual path
+
+If you want to understand or operate Outcall below the recipe layer, use the
+manual operator flow below.
 
 ## 1. Start the daemon
 

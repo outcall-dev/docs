@@ -57,6 +57,28 @@ network — bridge separation gives you isolation without relying on FORWARD.
 
 ## Install via Docker (recommended)
 
+If you are onboarding a single project for Claude Code or Codex, the shortest
+usable path after the daemon is installed is:
+
+```sh
+outcall init claude
+outcall doctor claude
+outcall recipe test claude
+outcall recipe run claude
+```
+
+or:
+
+```sh
+outcall init codex
+outcall doctor codex
+outcall recipe test codex
+outcall recipe run codex
+```
+
+That path scaffolds `.outcall/`, checks likely auth/config sources, verifies
+the image and container entrypoint, and then starts the isolated agent.
+
 ```sh
 docker run -d --rm \
   --name outcall-daemon \
@@ -122,6 +144,6 @@ permission to bind it.
 
 ## Next steps
 
-- [Quickstart](/docs/guides/quickstart) — bring up an agent container with rules.
+- [Quickstart](/docs/guides/quickstart) — isolate Claude Code or Codex in one project.
 - [Configuration](/docs/guides/configuration) — every daemon flag explained.
 - [Writing rules](/docs/guides/rules) — the rule YAML format and matchers.

@@ -19,7 +19,9 @@ outcall <subcommand> [flags]
 | `daemon`    | Start, stop, or inspect the outcalld daemon container. |
 | `rules`     | Hot-reload rules from disk (`outcall rules reload`). |
 | `requests`  | Review, approve, or reject agent-submitted rule requests. |
-| `recipe`    | Inspect and initialize known agent runtime recipes. |
+| `recipe`    | Inspect, test, and run known agent runtime recipes. |
+| `init`      | Scaffold `.outcall/` for the current project, optionally with a recipe. |
+| `doctor`    | Check first-run prerequisites, optionally with recipe-specific detail. |
 | `ui`        | Open the operator dashboard in a browser. |
 
 Global flag:
@@ -224,11 +226,12 @@ Initialize and run a known agent runtime profile.
 ```sh
 outcall recipe list
 outcall recipe show claude
-outcall recipe init claude
-outcall recipe init codex --force
+outcall init claude
+outcall init codex --force
 outcall recipe doctor claude
+outcall recipe test claude
 outcall recipe run claude
-outcall recipe run codex --auth env-only "inspect this repo"
+outcall recipe run codex "inspect this repo"
 ```
 
 Built-in recipes:
@@ -257,12 +260,19 @@ and `.claude/settings.json`. For Codex it looks for `CODEX_ACCESS_TOKEN`,
 `CODEX_API_KEY`, `~/.codex/auth.json`, `~/.codex/config.toml`,
 `~/.codex/AGENTS.md`, `AGENTS.md`, and `.codex/config.toml`.
 
+`test` is the first-run smoke check. It initializes missing recipe files,
+builds the local image unless `--no-build` is passed, stages provider auth,
+ensures the daemon and default network exist, and runs the recipe entrypoint
+with `--version` inside a short-lived container. This is the fastest way to
+see whether the host, auth, and image are ready before starting the real agent.
+
 Recipes intentionally avoid mounting the whole host home directory. Copy or
 mount only the selected auth/config paths the recipe reports.
 
 `run` initializes missing recipe files, builds the local recipe image unless
-`--no-build` is passed, stages provider auth/config, and starts the agent using
-the same container boot path as `outcall agent`.
+`--no-build` is passed, stages provider auth/config, ensures the daemon and
+default network exist, and starts the agent using the same container boot path
+as `outcall agent`.
 
 Auth transfer modes:
 
@@ -279,11 +289,46 @@ secret material.
 Recommended flow:
 
 ```sh
-outcall recipe init claude
-outcall recipe doctor claude
-outcall network create
+outcall init claude
+outcall doctor claude
+outcall recipe test claude
 outcall recipe run claude
 ```
+
+## init
+
+Scaffold the current project for Outcall use.
+
+```sh
+outcall init
+outcall init claude
+outcall init codex --force
+```
+
+`outcall init` creates:
+
+```text
+.outcall/agent.yaml
+.outcall/rules/
+.outcall/.gitignore
+```
+
+`outcall init <recipe>` adds the recipe scaffold on top of that base layout.
+By default `init` refuses to overwrite generated files; pass `--force` when
+you intentionally want to refresh them.
+
+## doctor
+
+Check first-run prerequisites without talking to the daemon API.
+
+```sh
+outcall doctor
+outcall doctor claude
+outcall doctor codex
+```
+
+The top-level `doctor` checks the local scaffold plus command availability.
+The recipe-specific form adds auth candidate checks and project context checks.
 
 Test a rule before deploying it:
 
