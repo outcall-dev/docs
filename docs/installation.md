@@ -13,34 +13,29 @@ curl -fsSL https://outcall.dev/install.sh | sh
 ```
 
 On Linux, the installer also preloads the matching `outcalld` Docker image when
-Docker is available, so `outcall claude` / `outcall codex` can start from local release
-artifacts instead of relying on an initial registry pull.
+Docker is available, so the first `outcall start` run can start from local
+release artifacts instead of relying on an initial registry pull.
 
 Then, from the root of the project you want to isolate:
 
 ```sh
-outcall claude
+outcall start
 ```
 
-or:
+If Outcall cannot infer the provider cleanly, choose one explicitly:
 
 ```sh
+outcall claude
 outcall codex
 ```
 
-`outcall claude` / `outcall codex` are the shortest supported first-run path.
-They expand to `outcall run <recipe>`, which scaffolds
+`outcall start` is the shortest supported first-run path when the host only has
+one supported provider configured. It expands to the same flow as
+`outcall claude` / `outcall codex`: `outcall run <recipe>`, which scaffolds
 `.outcall/`, checks likely auth/config sources, builds the recipe image,
 starts `outcall-daemon` if needed, creates the default network if needed,
 verifies the recipe entrypoint in a smoke container, and then launches the
 real isolated agent container.
-
-If the host only has one supported provider configured, `outcall start` can
-choose it automatically:
-
-```sh
-outcall start
-```
 
 If the first run stops on a prerequisite, inspect it directly with:
 

@@ -23,26 +23,20 @@ curl -fsSL https://outcall.dev/install.sh | sh
 ```
 
 On Linux, the installer preloads the matching `outcalld` Docker image when
-Docker is available, so the first `outcall claude` / `outcall codex` run does not depend on an
+Docker is available, so the first `outcall start` run does not depend on an
 anonymous registry pull.
 
-Claude Code:
-
-```sh
-outcall claude
-```
-
-Codex CLI:
-
-```sh
-outcall codex
-```
-
-If the host only has one supported provider configured, you can also let
-Outcall choose it:
+Start with the default path:
 
 ```sh
 outcall start
+```
+
+If Outcall cannot infer the provider cleanly, choose one explicitly:
+
+```sh
+outcall claude
+outcall codex
 ```
 
 What these do:
@@ -72,11 +66,11 @@ outcall recipe test <recipe>
 outcall recipe run <recipe>
 ```
 
-`outcall claude` and `outcall codex` are just direct aliases for
-`outcall run claude` and `outcall run codex`.
-
 `outcall start` uses the same flow, but only auto-selects a provider when it
 finds Claude-only or Codex-only auth candidates on the host.
+
+`outcall claude` and `outcall codex` are just direct aliases for
+`outcall run claude` and `outcall run codex`.
 
 The intermediate shortcut is:
 
