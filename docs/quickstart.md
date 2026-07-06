@@ -38,6 +38,13 @@ Codex CLI:
 outcall codex
 ```
 
+If the host only has one supported provider configured, you can also let
+Outcall choose it:
+
+```sh
+outcall start
+```
+
 What these do:
 
 - They write `.outcall/` scaffolding for the current project, check Docker and
@@ -67,6 +74,9 @@ outcall recipe run <recipe>
 
 `outcall claude` and `outcall codex` are just direct aliases for
 `outcall run claude` and `outcall run codex`.
+
+`outcall start` uses the same flow, but only auto-selects a provider when it
+finds Claude-only or Codex-only auth candidates on the host.
 
 The intermediate shortcut is:
 

@@ -20,6 +20,7 @@ outcall <subcommand> [flags]
 | `rules`     | Hot-reload rules from disk (`outcall rules reload`). |
 | `requests`  | Review, approve, or reject agent-submitted rule requests. |
 | `recipe`    | Inspect, test, and run known agent runtime recipes. |
+| `start`     | Recommended no-brain entrypoint when only one provider is configured. |
 | `claude`    | Recommended first-run alias for `outcall run claude`. |
 | `codex`     | Recommended first-run alias for `outcall run codex`. |
 | `init`      | Scaffold `.outcall/` for the current project, optionally with a recipe. |
@@ -62,6 +63,17 @@ outcall codex  [--no-build] [--auth auto|copy|mount|env-only] [--detach]
 
 These are the recommended first commands for new users. They are direct aliases
 for `outcall run claude` and `outcall run codex`.
+
+## start
+
+```sh
+outcall start [claude|codex] [--no-build] [--auth auto|copy|mount|env-only] [--detach]
+```
+
+This is the simplest generic entrypoint. With an explicit provider, it behaves
+like `outcall claude` or `outcall codex`. Without one, Outcall inspects the
+usual Claude/Codex auth candidates and auto-selects the provider only when the
+host clearly matches one of them.
 
 ## setup
 

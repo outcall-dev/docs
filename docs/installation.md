@@ -35,6 +35,13 @@ starts `outcall-daemon` if needed, creates the default network if needed,
 verifies the recipe entrypoint in a smoke container, and then launches the
 real isolated agent container.
 
+If the host only has one supported provider configured, `outcall start` can
+choose it automatically:
+
+```sh
+outcall start
+```
+
 If the first run stops on a prerequisite, inspect it directly with:
 
 ```sh
