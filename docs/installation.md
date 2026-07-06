@@ -13,7 +13,7 @@ curl -fsSL https://outcall.dev/install.sh | sh
 ```
 
 On Linux, the installer also preloads the matching `outcalld` Docker image when
-Docker is available, so `outcall run <recipe>` can start from local release
+Docker is available, so `outcall claude` / `outcall codex` can start from local release
 artifacts instead of relying on an initial registry pull.
 
 Then, from the root of the project you want to isolate:
@@ -34,6 +34,13 @@ They expand to `outcall run <recipe>`, which scaffolds
 starts `outcall-daemon` if needed, creates the default network if needed,
 verifies the recipe entrypoint in a smoke container, and then launches the
 real isolated agent container.
+
+If the first run stops on a prerequisite, inspect it directly with:
+
+```sh
+outcall doctor claude
+outcall doctor codex
+```
 
 ## Requirements
 

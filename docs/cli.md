@@ -20,6 +20,8 @@ outcall <subcommand> [flags]
 | `rules`     | Hot-reload rules from disk (`outcall rules reload`). |
 | `requests`  | Review, approve, or reject agent-submitted rule requests. |
 | `recipe`    | Inspect, test, and run known agent runtime recipes. |
+| `claude`    | Recommended first-run alias for `outcall run claude`. |
+| `codex`     | Recommended first-run alias for `outcall run codex`. |
 | `init`      | Scaffold `.outcall/` for the current project, optionally with a recipe. |
 | `doctor`    | Check first-run prerequisites, optionally with recipe-specific detail. |
 | `setup`     | Run the first-time recipe path: init, doctor, smoke test. |
@@ -38,7 +40,8 @@ Global flag:
 outcall run <claude|codex> [--no-build] [--auth auto|copy|mount|env-only] [--detach]
 ```
 
-This is the recommended first-run path for new users. It performs:
+This is the lower-level command behind the recommended first-run aliases
+`outcall claude` and `outcall codex`. It performs:
 
 ```sh
 outcall init <recipe>
@@ -50,14 +53,24 @@ outcall recipe run <recipe>
 Use `outcall setup <recipe>` if you want the scaffold/check/smoke portion
 without launching the long-lived agent container yet.
 
+## claude / codex
+
+```sh
+outcall claude [--no-build] [--auth auto|copy|mount|env-only] [--detach]
+outcall codex  [--no-build] [--auth auto|copy|mount|env-only] [--detach]
+```
+
+These are the recommended first commands for new users. They are direct aliases
+for `outcall run claude` and `outcall run codex`.
+
 ## setup
 
 ```sh
 outcall setup <claude|codex> [--no-build] [--auth auto|copy|mount|env-only]
 ```
 
-This is the shortest first-run path for new users. It runs the same sequence
-you would otherwise do by hand:
+This runs the scaffold/check/smoke sequence without launching the long-lived
+agent container:
 
 ```sh
 outcall init <recipe>

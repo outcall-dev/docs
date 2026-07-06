@@ -23,7 +23,7 @@ curl -fsSL https://outcall.dev/install.sh | sh
 ```
 
 On Linux, the installer preloads the matching `outcalld` Docker image when
-Docker is available, so the first `outcall run <recipe>` does not depend on an
+Docker is available, so the first `outcall claude` / `outcall codex` run does not depend on an
 anonymous registry pull.
 
 Claude Code:
@@ -40,15 +40,21 @@ outcall codex
 
 What these do:
 
-- `run` writes `.outcall/` scaffolding for the current project, checks Docker
-  and generated files, inspects auth candidates and project context, builds
-  the image, ensures the daemon and default network exist, runs a smoke
-  container with the recipe entrypoint, and then starts the isolated agent
-  container.
+- They write `.outcall/` scaffolding for the current project, check Docker and
+  generated files, inspect auth candidates and project context, build the
+  image, ensure the daemon and default network exist, run a smoke container
+  with the recipe entrypoint, and then start the isolated agent container.
 
 Recipes intentionally avoid mounting your whole home directory. By default they
 auto-select copied provider auth/config paths when recipe files exist, and fall
 back to env-only when only environment credentials are present.
+
+If the fast path stops on a prerequisite, inspect it directly:
+
+```sh
+outcall doctor claude
+outcall doctor codex
+```
 
 If you need to split the flow up, `outcall run <recipe>` expands to:
 
