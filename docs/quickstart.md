@@ -39,6 +39,9 @@ outcall claude
 outcall codex
 ```
 
+That explicit choice also becomes the saved default recipe for the project, so
+later runs can go back to `outcall start`.
+
 What these do:
 
 - They write `.outcall/` scaffolding for the current project, check Docker and

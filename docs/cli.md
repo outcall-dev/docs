@@ -74,7 +74,8 @@ This is the simplest generic entrypoint and the default first command to show
 new users. With an explicit provider, it behaves like `outcall claude` or
 `outcall codex`. Without one, Outcall inspects the usual Claude/Codex auth
 candidates and auto-selects the provider only when the host clearly matches one
-of them.
+of them. If the project already has a saved default recipe from `outcall init
+<recipe>`, `outcall claude`, or `outcall codex`, `start` uses that first.
 
 ## setup
 
