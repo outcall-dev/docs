@@ -78,7 +78,7 @@ docker run -d --rm \
   --network host \
   --cap-add NET_ADMIN \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  -v /run/outcall:/run/outcall \
+  -v /tmp/outcall:/tmp/outcall \
   -v /etc/outcall:/etc/outcall \
   ghcr.io/outcall-dev/outcalld:latest \
   --bridge outcall0
@@ -121,7 +121,7 @@ outcall rules reload
 Or, equivalently, POST to the host API directly:
 
 ```sh
-sudo curl -fsS --unix-socket /run/outcall/host.sock \
+sudo curl -fsS --unix-socket /tmp/outcall/host.sock \
   -X POST http://localhost/api/v1/rules/reload | jq .
 ```
 
@@ -149,7 +149,7 @@ docker run -it --rm \
   --dns 10.200.0.1 \
   -e HTTP_PROXY=http://10.200.0.1:8080 \
   -e HTTPS_PROXY=http://10.200.0.1:8080 \
-  -v /run/outcall/agent.sock:/run/outcall/agent.sock \
+  -v /tmp/outcall/agent.sock:/run/outcall/agent.sock \
   -v /usr/local/bin/outcall-agent:/usr/local/bin/outcall-agent:ro \
   python:3.12 \
   bash
@@ -191,7 +191,7 @@ outcall proxy status                  # active connections, totals, blocks
 To inspect rules, query the host API:
 
 ```sh
-curl --unix-socket /run/outcall/host.sock http://localhost/api/v1/rules | jq .
+curl --unix-socket /tmp/outcall/host.sock http://localhost/api/v1/rules | jq .
 ```
 
 ## What just happened

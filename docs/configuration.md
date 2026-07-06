@@ -8,7 +8,7 @@ configured `--rules-dir`.
 
 | Flag | Default | Purpose |
 |---|---|---|
-| `--socket <path>` | `/run/outcall/host.sock` | Operator API Unix socket (host CLI + UI). |
+| `--socket <path>` | `/tmp/outcall/host.sock` | Operator API Unix socket (host CLI + UI). |
 | `--bridge <name>` | `outcall0` | Linux bridge interface name. Created if missing. |
 | `--rules-dir <path>` | `/etc/outcall/rules.d` | Directory of YAML rule files. |
 | `--dns-listen <ip>` | `10.200.0.1` | DNS filter bind address (IP only). |
@@ -16,7 +16,7 @@ configured `--rules-dir`.
 | `--dns-upstream <list>` | from `/etc/resolv.conf` | Comma-separated upstream resolvers (`IP[:port]`). |
 | `--proxy-addr <host:port>` | `10.200.0.1:8080` | HTTP proxy bind address. |
 | `--no-proxy` | _off_ | Disable the HTTP proxy entirely. Startup fails if loaded allow rules require `egress.mode: proxy`. |
-| `--agent-socket-host-path <path>` | `/run/outcall/agent.sock` | Agent API Unix socket (one shared socket per host). |
+| `--agent-socket-host-path <path>` | `/tmp/outcall/agent.sock` | Agent API Unix socket (one shared socket per host). |
 | `--shim-host-path <path>` | `/usr/local/bin/outcall-agent` | Path to the `outcall-agent` shim binary; bind-mounted into agent containers. |
 | `--agent-timeout-secs <n>` | `5` | Server-side rule-evaluation timeout for agent permission checks. |
 | `--agent-perm-rate <count/seconds>` | `100/10` | Sliding-window rate limit for permission checks per container. |
@@ -77,8 +77,8 @@ Each subsystem logs under a stable target name (`bridge`, `network`,
 |---|---|
 | `--rules-dir` (default `/etc/outcall/rules.d/`) | Rule YAML, edited by operators. |
 | `/var/lib/outcall/` | Persisted state (rule requests, dynamic rules). |
-| `/run/outcall/host.sock` | Operator socket (recreated on each daemon start). |
-| `/run/outcall/agent.sock` | Agent socket (recreated on each daemon start). |
+| `/tmp/outcall/host.sock` | Operator socket (recreated on each daemon start). |
+| `/tmp/outcall/agent.sock` | Agent socket (recreated on each daemon start). |
 
 Networks and containers **outlive the daemon**: if `outcalld` exits, the
 bridge and its nftables table are torn down, but Docker networks remain.
@@ -108,7 +108,7 @@ If any P1 step fails, startup aborts. The full sequence is documented in
 Rule changes are picked up by POSTing to the host API:
 
 ```sh
-curl --unix-socket /run/outcall/host.sock \
+curl --unix-socket /tmp/outcall/host.sock \
   -X POST http://localhost/api/v1/rules/reload | jq .
 ```
 

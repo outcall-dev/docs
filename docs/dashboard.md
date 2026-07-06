@@ -10,7 +10,7 @@ socket never serves it, so agent containers cannot reach it even by mistake.
 
 ## Accessing the dashboard
 
-The host API binds a Unix domain socket at `/run/outcall/host.sock`, not a
+The host API binds a Unix domain socket at `/tmp/outcall/host.sock`, not a
 TCP port. Browsers can't open Unix sockets directly, so the CLI ships a
 built-in TCP-to-Unix bridge.
 
@@ -26,11 +26,11 @@ different port, or `--no-open` if you don't want the browser launched
 automatically.
 
 Equivalent under the hood to running `socat TCP-LISTEN:8080,reuseaddr,fork
-UNIX-CONNECT:/run/outcall/host.sock` — handy if you'd rather use socat
+UNIX-CONNECT:/tmp/outcall/host.sock` — handy if you'd rather use socat
 directly:
 
 ```bash
-socat TCP-LISTEN:8080,reuseaddr,fork UNIX-CONNECT:/run/outcall/host.sock
+socat TCP-LISTEN:8080,reuseaddr,fork UNIX-CONNECT:/tmp/outcall/host.sock
 ```
 
 ### Option 2 — `nginx` (for an always-on workstation)
@@ -38,7 +38,7 @@ socat TCP-LISTEN:8080,reuseaddr,fork UNIX-CONNECT:/run/outcall/host.sock
 ```nginx
 server {
     listen 127.0.0.1:8080;
-    location / { proxy_pass http://unix:/run/outcall/host.sock:; }
+    location / { proxy_pass http://unix:/tmp/outcall/host.sock:; }
 }
 ```
 
@@ -47,8 +47,8 @@ server {
 For headless inspection without spinning up a shim:
 
 ```bash
-curl --unix-socket /run/outcall/host.sock http://_/api/v1/bridge
-curl --unix-socket /run/outcall/host.sock http://_/api/v1/containers
+curl --unix-socket /tmp/outcall/host.sock http://_/api/v1/bridge
+curl --unix-socket /tmp/outcall/host.sock http://_/api/v1/containers
 ```
 
 ## What the dashboard shows
@@ -88,7 +88,7 @@ agent on its next heartbeat.
 
 ## Security
 
-- The dashboard inherits Unix socket file permissions (`/run/outcall/host.sock`
+- The dashboard inherits Unix socket file permissions (`/tmp/outcall/host.sock`
   is `0660`, owner `root:outcall` by default). If you can read the socket,
   you can use the dashboard — there is no separate auth layer.
 - Treat the socat/nginx shim as a privileged endpoint: bind to `127.0.0.1`,

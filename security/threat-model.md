@@ -57,7 +57,7 @@ Outcall checks at each crossing.
 | Agent shim ↔ daemon | HTTP over `/run/outcall/agent.sock` | SO_PEERCRED resolves PID → container; container is the identity. Rate-limited. Body capped at 64 KiB. |
 | Agent ↔ external network (HTTP) | TCP/HTTP via 10.200.0.1:8080 | L7 proxy. Rule engine evaluates pre-CONNECT-200 and post-SNI. 403 on block. |
 | Agent ↔ external network (DNS) | UDP/TCP to 10.200.0.1:53 | DNS filter. Rule engine evaluates `dns.query`. NXDOMAIN on block. |
-| Operator ↔ daemon | Unix socket `/run/outcall/host.sock` | Root-only by filesystem permissions. |
+| Operator ↔ daemon | Unix socket `/tmp/outcall/host.sock` | Owner-only by filesystem permissions. |
 
 ## What Outcall protects against
 

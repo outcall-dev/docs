@@ -30,7 +30,7 @@ Global flag:
 
 | Flag | Default | Purpose |
 |---|---|---|
-| `--socket <path>` | `/run/outcall/host.sock` | Daemon socket path. |
+| `--socket <path>` | `/tmp/outcall/host.sock` | Daemon socket path. |
 
 ## run
 
@@ -153,10 +153,10 @@ Rules are reloaded via the CLI or the host API:
 outcall rules reload
 
 # Using curl over the unix socket
-curl --unix-socket /run/outcall/host.sock -X POST http://localhost/api/v1/rules/reload
+curl --unix-socket /tmp/outcall/host.sock -X POST http://localhost/api/v1/rules/reload
 
 # In a script:
-sudo curl -fsS --unix-socket /run/outcall/host.sock \
+sudo curl -fsS --unix-socket /tmp/outcall/host.sock \
   -X POST http://localhost/api/v1/rules/reload \
   | jq .
 ```
@@ -168,7 +168,7 @@ remains active and the response includes the error.
 Listing currently loaded rules:
 
 ```sh
-curl --unix-socket /run/outcall/host.sock http://localhost/api/v1/rules | jq .
+curl --unix-socket /tmp/outcall/host.sock http://localhost/api/v1/rules | jq .
 ```
 
 ## Rule requests
@@ -371,7 +371,7 @@ Test a rule before deploying it:
 
 ```sh
 # Edit /etc/outcall/rules.d/agent.yaml, add a new rule for example.com
-sudo curl --unix-socket /run/outcall/host.sock \
+sudo curl --unix-socket /tmp/outcall/host.sock \
   -X POST http://localhost/api/v1/rules/reload | jq .
 
 outcall dns test example.com               # would the engine allow this hostname?

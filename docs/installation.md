@@ -93,7 +93,7 @@ docker run -d --rm \
   --network host \
   --cap-add NET_ADMIN \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  -v /run/outcall:/run/outcall \
+  -v /tmp/outcall:/tmp/outcall \
   -v /etc/outcall:/etc/outcall \
   ghcr.io/outcall-dev/outcalld:latest \
   --bridge outcall0
@@ -108,7 +108,7 @@ Required mounts:
 | Mount | Purpose |
 |---|---|
 | `/var/run/docker.sock` | Manage Docker networks, look up containers by PID |
-| `/run/outcall` | Unix sockets for host CLI and agent shim |
+| `/tmp/outcall` | Unix sockets for host CLI and agent shim |
 | `/etc/outcall` | Rule files and persisted state |
 
 ## Install from source
@@ -147,7 +147,7 @@ outcall bridge status
 ```
 
 If the CLI reports `cannot connect to outcalld at … — is it running?`,
-check the socket path (`/run/outcall/host.sock`) and the daemon's
+check the socket path (`/tmp/outcall/host.sock`) and the daemon's
 permission to bind it.
 
 ## Next steps

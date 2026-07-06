@@ -40,7 +40,7 @@ sudo setcap cap_net_admin,cap_sys_admin+ep /usr/local/sbin/outcalld
 
 ```sh
 outcall bridge status
-# Error: cannot connect to outcalld at /run/outcall/host.sock — is it running?
+# Error: cannot connect to outcalld at /tmp/outcall/host.sock — is it running?
 #
 # Caused by:
 #     No such file or directory (os error 2)
@@ -98,19 +98,19 @@ on a missing verdict.
 Diagnose:
 
 ```sh
-ls -l /run/outcall/agent.sock
+ls -l /tmp/outcall/agent.sock
 docker logs outcall-daemon | tail
 ```
 
 If the agent socket exists but exit-5 persists, the shim is probably mounted
 at a path the agent's PID namespace can't see. Re-mount with
-`-v /run/outcall/agent.sock:/run/outcall/agent.sock`.
+`-v /tmp/outcall/agent.sock:/run/outcall/agent.sock`.
 
 ## nftables rule isn't firing
 
 ```sh
 sudo nft list table inet outcall
-curl --unix-socket /run/outcall/host.sock http://localhost/api/v1/rules | jq .
+curl --unix-socket /tmp/outcall/host.sock http://localhost/api/v1/rules | jq .
 ```
 
 Things to check:
@@ -129,7 +129,7 @@ rejected and the old set stays active. The response body names the file
 and the parser error.
 
 ```sh
-curl --unix-socket /run/outcall/host.sock \
+curl --unix-socket /tmp/outcall/host.sock \
      -X POST http://localhost/api/v1/rules/reload | jq .
 # {"ok":false,"error":"/etc/outcall/rules.d/agent.yaml:5: CEL parse error: undefined identifier 'http_host'"}
 ```

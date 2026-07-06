@@ -161,7 +161,7 @@ docker rm my-agent-container
 docker create \
   --name my-agent-container \
   --network outcall-default \
-  --mount type=bind,source=/run/outcall/agent.sock,target=/run/outcall/agent.sock \
+  --mount type=bind,source=/tmp/outcall/agent.sock,target=/run/outcall/agent.sock \
   --mount type=bind,source=/usr/local/bin/outcall-agent,target=/usr/local/bin/outcall,ro \
   -it \
   alpine:latest \
@@ -192,7 +192,7 @@ To make these persistent across restarts, use Docker's `--env` flag when creatin
 docker create \
   --name my-agent-container \
   --network outcall-default \
-  --mount type=bind,source=/run/outcall/agent.sock,target=/run/outcall/agent.sock \
+  --mount type=bind,source=/tmp/outcall/agent.sock,target=/run/outcall/agent.sock \
   --mount type=bind,source=/usr/local/bin/outcall-agent,target=/usr/local/bin/outcall,ro \
   --env HTTP_PROXY="http://10.200.0.1:8080" \
   --env HTTPS_PROXY="http://10.200.0.1:8080" \
@@ -234,7 +234,7 @@ When `outcalld` creates a container via its Docker Manager, it applies these con
 | CPU shares (default 1024) | Fair CPU scheduling |
 | Stop timeout (10s) | SIGTERM → 10s → SIGKILL |
 
-The host socket (`/run/outcall/host.sock`) is explicitly denied in the mount validation — any bind mount attempting to include the host socket is rejected before reaching Docker.
+The host socket (`/tmp/outcall/host.sock`) is explicitly denied in the mount validation — any bind mount attempting to include the host socket is rejected before reaching Docker.
 
 ---
 
@@ -430,7 +430,7 @@ make test
 | Requirement | Value | Purpose |
 |------------|-------|---------|
 | Network | `outcall-default` (or managed network) | Route through bridge |
-| Agent socket mount | `/run/outcall/agent.sock` (host path) → `/run/outcall/agent.sock` (container) | Agent API communication |
+| Agent socket mount | `/tmp/outcall/agent.sock` (host path) → `/run/outcall/agent.sock` (container) | Agent API communication |
 | Shim mount | `/usr/local/bin/outcall-agent` (host) → `/usr/local/bin/outcall` (container, read-only) | Policy enforcement |
 | DNS resolver | `10.200.0.1:53` (bridge gateway) | DNS filtering |
 | HTTP proxy | `HTTP_PROXY=http://10.200.0.1:8080` / `HTTPS_PROXY=http://10.200.0.1:8080` | L7 HTTP/HTTPS inspection |
