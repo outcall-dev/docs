@@ -12,6 +12,10 @@ Install the release binaries:
 curl -fsSL https://outcall.dev/install.sh | sh
 ```
 
+On Linux, the installer also preloads the matching `outcalld` Docker image when
+Docker is available, so `outcall run <recipe>` can start from local release
+artifacts instead of relying on an initial registry pull.
+
 Then, from the root of the project you want to isolate:
 
 ```sh

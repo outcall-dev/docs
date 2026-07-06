@@ -22,6 +22,10 @@ Install the release binaries:
 curl -fsSL https://outcall.dev/install.sh | sh
 ```
 
+On Linux, the installer preloads the matching `outcalld` Docker image when
+Docker is available, so the first `outcall run <recipe>` does not depend on an
+anonymous registry pull.
+
 Claude Code:
 
 ```sh

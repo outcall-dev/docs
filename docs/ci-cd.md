@@ -21,6 +21,13 @@ build the binary, but starting the daemon fails outside Linux.
 Each artifact is published to the GitHub Release and accompanied by a
 `SHA256SUMS.txt`.
 
+The release also publishes Docker-loadable daemon image archives:
+- `outcalld-image-linux-amd64.tar.gz`
+- `outcalld-image-linux-arm64.tar.gz`
+
+The public installer uses these archives to preload the daemon image during
+first-time Linux installs when Docker is available.
+
 The container image is pushed to `ghcr.io/outcall-dev/outcalld` with these tags:
 - `vX.Y.Z` — exact version
 - `latest` — most recent tag
