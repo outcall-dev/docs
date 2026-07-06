@@ -365,7 +365,10 @@ outcall doctor codex
 ```
 
 The top-level `doctor` checks the local scaffold plus command availability.
-The recipe-specific form adds auth candidate checks and project context checks.
+It also checks Linux host support, Docker daemon reachability, the default
+socket directory (`/tmp/outcall`), and the `br_netfilter` sysctls that gate
+agent-to-agent isolation. The recipe-specific form adds auth candidate checks
+and project context checks.
 
 Test a rule before deploying it:
 

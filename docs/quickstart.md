@@ -65,6 +65,10 @@ outcall setup <recipe>
 outcall recipe run <recipe>
 ```
 
+`outcall doctor <recipe>` now checks the usual first-run failures directly:
+Linux host support, Docker daemon availability, `/tmp/outcall`, and the
+`br_netfilter` sysctls, plus recipe auth/context candidates.
+
 ## Manual path
 
 If you want to understand or operate Outcall below the recipe layer, use the
