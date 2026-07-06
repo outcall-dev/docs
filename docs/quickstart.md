@@ -70,7 +70,11 @@ outcall recipe run <recipe>
 ```
 
 `outcall start` uses the same flow, but only auto-selects a provider when it
-finds Claude-only or Codex-only auth candidates on the host.
+finds one clear provider signal. It prefers, in order:
+
+- a saved project default recipe from a previous explicit choice
+- project context files such as `CLAUDE.md` or `AGENTS.md`
+- Claude-only or Codex-only auth candidates on the host
 
 `outcall claude` and `outcall codex` are just direct aliases for
 `outcall run claude` and `outcall run codex`.

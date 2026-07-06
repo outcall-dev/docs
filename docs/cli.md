@@ -73,9 +73,12 @@ outcall start [claude|codex] [--no-build] [--auth auto|copy|mount|env-only] [--d
 This is the simplest generic entrypoint and the default first command to show
 new users. With an explicit provider, it behaves like `outcall claude` or
 `outcall codex`. Without one, Outcall inspects the usual Claude/Codex auth
-candidates and auto-selects the provider only when the host clearly matches one
-of them. If the project already has a saved default recipe from `outcall init
-<recipe>`, `outcall claude`, or `outcall codex`, `start` uses that first.
+candidates and auto-selects the provider only when the project or host clearly
+matches one of them. Selection order is:
+
+1. saved project default from `outcall init <recipe>`, `outcall claude`, or `outcall codex`
+2. project context such as `CLAUDE.md`, `.claude/settings.json`, `AGENTS.md`, or `.codex/config.toml`
+3. host auth candidates
 
 ## setup
 
