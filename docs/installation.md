@@ -19,16 +19,17 @@ artifacts instead of relying on an initial registry pull.
 Then, from the root of the project you want to isolate:
 
 ```sh
-outcall run claude
+outcall claude
 ```
 
 or:
 
 ```sh
-outcall run codex
+outcall codex
 ```
 
-`outcall run` is the shortest supported first-run path. It scaffolds
+`outcall claude` / `outcall codex` are the shortest supported first-run path.
+They expand to `outcall run <recipe>`, which scaffolds
 `.outcall/`, checks likely auth/config sources, builds the recipe image,
 starts `outcall-daemon` if needed, creates the default network if needed,
 verifies the recipe entrypoint in a smoke container, and then launches the

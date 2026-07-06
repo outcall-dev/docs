@@ -35,7 +35,7 @@ Global flag:
 ## run
 
 ```sh
-outcall run <claude|codex> [--no-build] [--auth copy|mount|env-only] [--detach]
+outcall run <claude|codex> [--no-build] [--auth auto|copy|mount|env-only] [--detach]
 ```
 
 This is the recommended first-run path for new users. It performs:
@@ -53,7 +53,7 @@ without launching the long-lived agent container yet.
 ## setup
 
 ```sh
-outcall setup <claude|codex> [--no-build] [--auth copy|mount|env-only]
+outcall setup <claude|codex> [--no-build] [--auth auto|copy|mount|env-only]
 ```
 
 This is the shortest first-run path for new users. It runs the same sequence
@@ -311,11 +311,15 @@ mount only the selected auth/config paths the recipe reports.
 default network exist, and starts the agent using the same container boot path
 as `outcall agent`.
 
+For the two built-in first-run entrypoints, `outcall claude` is an alias for
+`outcall run claude` and `outcall codex` is an alias for `outcall run codex`.
+
 Auth transfer modes:
 
 | Mode | Behavior |
 |---|---|
-| `--auth copy` | Default. Copies selected provider files into `.outcall/auth/<id>/home` and mounts that directory as `/home/node`. |
+| `--auth auto` | Default. Uses copied provider files when recipe user paths exist; otherwise falls back to env-only. |
+| `--auth copy` | Copies selected provider files into `.outcall/auth/<id>/home` and mounts that directory as `/home/node`. |
 | `--auth mount` | Mounts selected existing provider files directly from the host home directory. |
 | `--auth env-only` | Does not copy or mount files; passes matching auth environment variables only. |
 

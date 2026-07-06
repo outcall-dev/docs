@@ -29,13 +29,13 @@ anonymous registry pull.
 Claude Code:
 
 ```sh
-outcall run claude
+outcall claude
 ```
 
 Codex CLI:
 
 ```sh
-outcall run codex
+outcall codex
 ```
 
 What these do:
@@ -47,7 +47,8 @@ What these do:
   container.
 
 Recipes intentionally avoid mounting your whole home directory. By default they
-copy only the selected provider auth/config paths into `.outcall/auth/<id>/home`.
+auto-select copied provider auth/config paths when recipe files exist, and fall
+back to env-only when only environment credentials are present.
 
 If you need to split the flow up, `outcall run <recipe>` expands to:
 
@@ -57,6 +58,9 @@ outcall doctor <recipe>
 outcall recipe test <recipe>
 outcall recipe run <recipe>
 ```
+
+`outcall claude` and `outcall codex` are just direct aliases for
+`outcall run claude` and `outcall run codex`.
 
 The intermediate shortcut is:
 
