@@ -16,37 +16,49 @@ Five minutes to an isolated Claude Code or Codex container.
 If your goal is "put Claude Code or Codex in a default-deny container without
 thinking about bridge internals first", start here.
 
+Install the release binaries:
+
+```sh
+curl -fsSL https://outcall.dev/install.sh | sh
+```
+
 Claude Code:
 
 ```sh
-outcall setup claude
-outcall recipe run claude
+outcall run claude
 ```
 
 Codex CLI:
 
 ```sh
-outcall setup codex
-outcall recipe run codex
+outcall run codex
 ```
 
 What these do:
 
-- `setup` writes `.outcall/` scaffolding for the current project, checks
-  Docker and generated files, inspects auth candidates and project context,
-  builds the image, ensures the daemon and default network exist, and runs a
-  smoke container with the recipe entrypoint.
-- `recipe run` starts the actual isolated agent container.
+- `run` writes `.outcall/` scaffolding for the current project, checks Docker
+  and generated files, inspects auth candidates and project context, builds
+  the image, ensures the daemon and default network exist, runs a smoke
+  container with the recipe entrypoint, and then starts the isolated agent
+  container.
 
 Recipes intentionally avoid mounting your whole home directory. By default they
 copy only the selected provider auth/config paths into `.outcall/auth/<id>/home`.
 
-If you need to split the flow up, `outcall setup <recipe>` expands to:
+If you need to split the flow up, `outcall run <recipe>` expands to:
 
 ```sh
 outcall init <recipe>
 outcall doctor <recipe>
 outcall recipe test <recipe>
+outcall recipe run <recipe>
+```
+
+The intermediate shortcut is:
+
+```sh
+outcall setup <recipe>
+outcall recipe run <recipe>
 ```
 
 ## Manual path

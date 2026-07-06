@@ -23,6 +23,7 @@ outcall <subcommand> [flags]
 | `init`      | Scaffold `.outcall/` for the current project, optionally with a recipe. |
 | `doctor`    | Check first-run prerequisites, optionally with recipe-specific detail. |
 | `setup`     | Run the first-time recipe path: init, doctor, smoke test. |
+| `run`       | Recommended first-time path: setup plus recipe launch. |
 | `ui`        | Open the operator dashboard in a browser. |
 
 Global flag:
@@ -30,6 +31,24 @@ Global flag:
 | Flag | Default | Purpose |
 |---|---|---|
 | `--socket <path>` | `/run/outcall/host.sock` | Daemon socket path. |
+
+## run
+
+```sh
+outcall run <claude|codex> [--no-build] [--auth copy|mount|env-only] [--detach]
+```
+
+This is the recommended first-run path for new users. It performs:
+
+```sh
+outcall init <recipe>
+outcall doctor <recipe>
+outcall recipe test <recipe>
+outcall recipe run <recipe>
+```
+
+Use `outcall setup <recipe>` if you want the scaffold/check/smoke portion
+without launching the long-lived agent container yet.
 
 ## setup
 
@@ -46,7 +65,7 @@ outcall doctor <recipe>
 outcall recipe test <recipe>
 ```
 
-Use `outcall recipe run <recipe>` after `setup` passes.
+Use `outcall run <recipe>` after `setup` passes.
 
 ## bridge
 

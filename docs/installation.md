@@ -4,6 +4,32 @@ Outcall is a Linux-only daemon. It manages a kernel network bridge and applies
 nftables rules — both require Linux. macOS hosts can build the workspace and
 run the CLI, but `outcalld` itself will not start outside Linux.
 
+## Fast install
+
+Install the release binaries:
+
+```sh
+curl -fsSL https://outcall.dev/install.sh | sh
+```
+
+Then, from the root of the project you want to isolate:
+
+```sh
+outcall run claude
+```
+
+or:
+
+```sh
+outcall run codex
+```
+
+`outcall run` is the shortest supported first-run path. It scaffolds
+`.outcall/`, checks likely auth/config sources, builds the recipe image,
+starts `outcall-daemon` if needed, creates the default network if needed,
+verifies the recipe entrypoint in a smoke container, and then launches the
+real isolated agent container.
+
 ## Requirements
 
 | Requirement | Why |
@@ -55,25 +81,7 @@ If you cannot enable `br_netfilter` (locked-down kernel, hardened host),
 treat T-2 as out of scope and put each agent on its own outcall-managed
 network — bridge separation gives you isolation without relying on FORWARD.
 
-## Install via Docker (recommended)
-
-If you are onboarding a single project for Claude Code or Codex, the shortest
-usable path after the daemon is installed is:
-
-```sh
-outcall setup claude
-outcall recipe run claude
-```
-
-or:
-
-```sh
-outcall setup codex
-outcall recipe run codex
-```
-
-That path scaffolds `.outcall/`, checks likely auth/config sources, verifies
-the image and container entrypoint, and then starts the isolated agent.
+## Manual daemon launch
 
 ```sh
 docker run -d --rm \
