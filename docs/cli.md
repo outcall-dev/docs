@@ -1,7 +1,7 @@
 # CLI reference
 
 The `outcall` binary talks to the daemon over its Unix socket. Output is
-plain text. The CLI exposes eleven subcommand groups:
+plain text. The CLI exposes twelve subcommand groups:
 
 ```
 outcall <subcommand> [flags]
@@ -19,6 +19,7 @@ outcall <subcommand> [flags]
 | `daemon`    | Start, stop, or inspect the outcalld daemon container. |
 | `rules`     | Hot-reload rules from disk (`outcall rules reload`). |
 | `requests`  | Review, approve, or reject agent-submitted rule requests. |
+| `recipe`    | Inspect and initialize known agent runtime recipes. |
 | `ui`        | Open the operator dashboard in a browser. |
 
 Global flag:
@@ -215,6 +216,48 @@ env:
 ports:
   - 3000:3000
 ```
+
+## recipe
+
+Initialize a known agent runtime profile before booting an agent container.
+Recipes generate project-local files only; they do not start containers by
+themselves.
+
+```sh
+outcall recipe list
+outcall recipe show claude
+outcall recipe init claude
+outcall recipe init codex --force
+outcall recipe doctor claude
+```
+
+Built-in recipes:
+
+| Recipe | Purpose |
+|---|---|
+| `claude` | Claude Code image scaffold, Anthropic API egress rules, and Claude context/auth transfer notes. |
+| `codex` | Codex CLI image scaffold, OpenAI/ChatGPT egress rules, and Codex context/auth transfer notes. |
+
+`init` writes:
+
+```text
+.outcall/recipes/<id>/recipe.yaml
+.outcall/recipes/<id>/Dockerfile
+.outcall/recipes/<id>/README.md
+.outcall/recipes/<id>/context.md
+.outcall/rules/<id>.yaml
+.outcall/agent.yaml
+```
+
+`doctor` checks whether Docker and Git are available, whether generated recipe
+files exist, and whether likely auth/context candidates are present. For Claude
+it looks for `ANTHROPIC_API_KEY`, `~/.claude`, `~/.claude.json`, `CLAUDE.md`,
+and `.claude/settings.json`. For Codex it looks for `CODEX_ACCESS_TOKEN`,
+`CODEX_API_KEY`, `~/.codex/auth.json`, `~/.codex/config.toml`,
+`~/.codex/AGENTS.md`, `AGENTS.md`, and `.codex/config.toml`.
+
+Recipes intentionally avoid mounting the whole host home directory. Copy or
+mount only the selected auth/config paths the recipe reports.
 
 Test a rule before deploying it:
 
