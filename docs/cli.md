@@ -191,6 +191,7 @@ outcall agent                          # Boot agent with current folder name
 outcall agent "analyze this code"      # Boot and pass command to agent
 outcall agent --name my-agent          # Custom agent name
 outcall agent --image custom:latest    # Custom Docker image
+outcall agent --network outcall-default # Attach to an outcall-managed network
 outcall agent --detach                 # Run in background
 outcall agent --list                   # List running agents
 outcall agent --stop                   # Stop agent (auto-detects name)
@@ -199,6 +200,9 @@ outcall agent --init                   # Create .outcall/agent.yaml template
 ```
 
 The agent mounts the current directory at `/workspace` inside the container.
+The default Docker network is `outcall-default`; create it with
+`outcall network create` before booting an agent, or pass `--network` for a
+different outcall-managed network.
 Configure per-project settings in `.outcall/agent.yaml`:
 
 ```yaml

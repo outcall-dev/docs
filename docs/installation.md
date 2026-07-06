@@ -57,14 +57,7 @@ network — bridge separation gives you isolation without relying on FORWARD.
 
 ## Install via Docker (recommended)
 
-A prebuilt image will be published once releases land. For now, build from
-source and run it as a container:
-
 ```sh
-git clone https://github.com/outcall-dev/outcall.git
-cd outcall
-docker build -f Dockerfile.test -t outcall-e2e .
-
 docker run -d --rm \
   --name outcall-daemon \
   --network host \
@@ -72,14 +65,13 @@ docker run -d --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v /run/outcall:/run/outcall \
   -v /etc/outcall:/etc/outcall \
-  outcall-e2e \
-  ./target/debug/outcalld --bridge outcall0
+  ghcr.io/outcall-dev/outcalld:latest \
+  --bridge outcall0
 ```
 
-`Dockerfile.test` is a `cargo build --workspace` (debug) image and does not put
-the binaries on `PATH`, so `outcalld` is invoked by its build path from the
-image's `/app` workdir. A release image with `outcalld` on `PATH` ships with
-the first published release.
+The image contains `outcalld`, `outcall`, and `outcall-agent` on `PATH`.
+For local development you can still build the debug image from source with
+`docker build -f Dockerfile.test -t outcall-daemon .`.
 
 Required mounts:
 
@@ -110,6 +102,7 @@ package release; for now run the daemon under your service manager of choice.
 ```sh
 outcalld --version
 outcall  --version
+outcall-agent --version
 ```
 
 Then start the daemon and check the bridge is up:

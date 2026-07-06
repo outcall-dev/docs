@@ -22,8 +22,8 @@ docker run -d --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v /run/outcall:/run/outcall \
   -v /etc/outcall:/etc/outcall \
-  outcall-daemon \
-  outcalld --bridge outcall0
+  ghcr.io/outcall-dev/outcalld:latest \
+  --bridge outcall0
 ```
 
 Verify the bridge is up and nftables rules are active:

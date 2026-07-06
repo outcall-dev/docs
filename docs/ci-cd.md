@@ -1,25 +1,28 @@
 # CI/CD Pipeline
 
-Outcall uses GitHub Actions for automated builds, releases, and container images.
+Outcall uses GitHub Actions for automated checks, release builds, and container
+image publishing.
 
 ## Workflows
 
 ### build-release.yml
 
-Triggered when a version tag (`v*`) is pushed. Builds binaries and a multi-arch container image:
+Triggered when a version tag (`v*`) is pushed. Builds release binaries and a
+multi-arch container image:
 
 | Platform | Arch | Output |
 |---|---|---|
 | Linux | x64, arm64 | `outcall`, `outcalld` binaries |
-| macOS | x64, arm64 | `outcall` (CLI only — `outcalld` is Linux-only) |
+| macOS | x64, arm64 | `outcall`, `outcalld` binaries; `outcalld` will not run on macOS |
 
-Note: `outcalld` requires Linux for bridge and nftables management (`#[cfg(target_os = "linux")]` gates the entire daemon main function). The macOS build produces the CLI client only.
+Note: `outcalld` requires Linux for bridge and nftables management. macOS can
+build the binary, but starting the daemon fails outside Linux.
 
-Each artifact is published to the GitHub Release and accompanied by a `SHA256SUMS.txt`.
+Each artifact is published to the GitHub Release and accompanied by a
+`SHA256SUMS.txt`.
 
-The container image is pushed to `ghcr.io/outcall-dev/outcall` with the following tags:
+The container image is pushed to `ghcr.io/outcall-dev/outcalld` with these tags:
 - `vX.Y.Z` — exact version
-- `sha-{sha}` — commit SHA
 - `latest` — most recent tag
 
 ### tag-on-merge.yml
@@ -44,10 +47,11 @@ Each crate carries its own version in its `Cargo.toml` (e.g. `application/outcal
 
 ## Container Image
 
-Built from `application/Dockerfile.test` with multi-arch support (`linux/amd64`, `linux/arm64`).
+Release images are built from `application/Dockerfile` with multi-arch support
+for `linux/amd64` and `linux/arm64`.
 
 ```bash
-docker run ghcr.io/outcall-dev/outcall:latest --help
+docker run ghcr.io/outcall-dev/outcalld:latest --version
 ```
 
 ## Secrets
@@ -55,6 +59,5 @@ docker run ghcr.io/outcall-dev/outcall:latest --help
 | Secret | Required for |
 |---|---|
 | `GITHUB_TOKEN` | Always available (provided by GitHub Actions) |
-| `GHCR_TOKEN` | Container image push — uses `GITHUB_TOKEN` by default |
 
 No additional secrets are required for the standard release flow.
