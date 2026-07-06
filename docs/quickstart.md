@@ -19,31 +19,35 @@ thinking about bridge internals first", start here.
 Claude Code:
 
 ```sh
-outcall init claude
-outcall doctor claude
-outcall recipe test claude
+outcall setup claude
 outcall recipe run claude
 ```
 
 Codex CLI:
 
 ```sh
-outcall init codex
-outcall doctor codex
-outcall recipe test codex
+outcall setup codex
 outcall recipe run codex
 ```
 
 What these do:
 
-- `init` writes `.outcall/` scaffolding for the current project.
-- `doctor` checks Docker, generated files, auth candidates, and project context.
-- `recipe test` builds the image, stages auth, ensures the daemon and default
-  network exist, and runs a smoke container with the recipe entrypoint.
+- `setup` writes `.outcall/` scaffolding for the current project, checks
+  Docker and generated files, inspects auth candidates and project context,
+  builds the image, ensures the daemon and default network exist, and runs a
+  smoke container with the recipe entrypoint.
 - `recipe run` starts the actual isolated agent container.
 
 Recipes intentionally avoid mounting your whole home directory. By default they
 copy only the selected provider auth/config paths into `.outcall/auth/<id>/home`.
+
+If you need to split the flow up, `outcall setup <recipe>` expands to:
+
+```sh
+outcall init <recipe>
+outcall doctor <recipe>
+outcall recipe test <recipe>
+```
 
 ## Manual path
 

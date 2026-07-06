@@ -1,7 +1,7 @@
 # CLI reference
 
 The `outcall` binary talks to the daemon over its Unix socket. Output is
-plain text. The CLI exposes twelve subcommand groups:
+plain text. The CLI exposes these top-level commands:
 
 ```
 outcall <subcommand> [flags]
@@ -22,6 +22,7 @@ outcall <subcommand> [flags]
 | `recipe`    | Inspect, test, and run known agent runtime recipes. |
 | `init`      | Scaffold `.outcall/` for the current project, optionally with a recipe. |
 | `doctor`    | Check first-run prerequisites, optionally with recipe-specific detail. |
+| `setup`     | Run the first-time recipe path: init, doctor, smoke test. |
 | `ui`        | Open the operator dashboard in a browser. |
 
 Global flag:
@@ -29,6 +30,23 @@ Global flag:
 | Flag | Default | Purpose |
 |---|---|---|
 | `--socket <path>` | `/run/outcall/host.sock` | Daemon socket path. |
+
+## setup
+
+```sh
+outcall setup <claude|codex> [--no-build] [--auth copy|mount|env-only]
+```
+
+This is the shortest first-run path for new users. It runs the same sequence
+you would otherwise do by hand:
+
+```sh
+outcall init <recipe>
+outcall doctor <recipe>
+outcall recipe test <recipe>
+```
+
+Use `outcall recipe run <recipe>` after `setup` passes.
 
 ## bridge
 

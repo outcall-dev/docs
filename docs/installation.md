@@ -61,18 +61,14 @@ If you are onboarding a single project for Claude Code or Codex, the shortest
 usable path after the daemon is installed is:
 
 ```sh
-outcall init claude
-outcall doctor claude
-outcall recipe test claude
+outcall setup claude
 outcall recipe run claude
 ```
 
 or:
 
 ```sh
-outcall init codex
-outcall doctor codex
-outcall recipe test codex
+outcall setup codex
 outcall recipe run codex
 ```
 
