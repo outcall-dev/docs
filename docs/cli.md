@@ -20,9 +20,9 @@ outcall <subcommand> [flags]
 | `rules`     | Hot-reload rules from disk (`outcall rules reload`). |
 | `requests`  | Review, approve, or reject agent-submitted rule requests. |
 | `recipe`    | Inspect, test, and run known agent runtime recipes. |
-| `start`     | Recommended no-brain entrypoint when only one provider is configured. |
-| `claude`    | Recommended first-run alias for `outcall run claude`. |
-| `codex`     | Recommended first-run alias for `outcall run codex`. |
+| `start`     | Recommended no-brain entrypoint; auto-selects the provider when possible. |
+| `claude`    | Explicit Claude fallback for `outcall run claude`. |
+| `codex`     | Explicit Codex fallback for `outcall run codex`. |
 | `init`      | Scaffold `.outcall/` for the current project, optionally with a recipe. |
 | `doctor`    | Check first-run prerequisites, optionally with recipe-specific detail. |
 | `setup`     | Run the first-time recipe path: init, doctor, smoke test. |
@@ -61,8 +61,8 @@ outcall claude [--no-build] [--auth auto|copy|mount|env-only] [--detach]
 outcall codex  [--no-build] [--auth auto|copy|mount|env-only] [--detach]
 ```
 
-These are the recommended first commands for new users. They are direct aliases
-for `outcall run claude` and `outcall run codex`.
+These are the explicit fallbacks when `outcall start` cannot infer the provider
+cleanly. They are direct aliases for `outcall run claude` and `outcall run codex`.
 
 ## start
 
@@ -70,10 +70,11 @@ for `outcall run claude` and `outcall run codex`.
 outcall start [claude|codex] [--no-build] [--auth auto|copy|mount|env-only] [--detach]
 ```
 
-This is the simplest generic entrypoint. With an explicit provider, it behaves
-like `outcall claude` or `outcall codex`. Without one, Outcall inspects the
-usual Claude/Codex auth candidates and auto-selects the provider only when the
-host clearly matches one of them.
+This is the simplest generic entrypoint and the default first command to show
+new users. With an explicit provider, it behaves like `outcall claude` or
+`outcall codex`. Without one, Outcall inspects the usual Claude/Codex auth
+candidates and auto-selects the provider only when the host clearly matches one
+of them.
 
 ## setup
 
