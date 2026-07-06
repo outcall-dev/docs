@@ -219,9 +219,7 @@ ports:
 
 ## recipe
 
-Initialize a known agent runtime profile before booting an agent container.
-Recipes generate project-local files only; they do not start containers by
-themselves.
+Initialize and run a known agent runtime profile.
 
 ```sh
 outcall recipe list
@@ -229,6 +227,8 @@ outcall recipe show claude
 outcall recipe init claude
 outcall recipe init codex --force
 outcall recipe doctor claude
+outcall recipe run claude
+outcall recipe run codex --auth env-only "inspect this repo"
 ```
 
 Built-in recipes:
@@ -247,6 +247,7 @@ Built-in recipes:
 .outcall/recipes/<id>/context.md
 .outcall/rules/<id>.yaml
 .outcall/agent.yaml
+.outcall/.gitignore
 ```
 
 `doctor` checks whether Docker and Git are available, whether generated recipe
@@ -258,6 +259,31 @@ and `.claude/settings.json`. For Codex it looks for `CODEX_ACCESS_TOKEN`,
 
 Recipes intentionally avoid mounting the whole host home directory. Copy or
 mount only the selected auth/config paths the recipe reports.
+
+`run` initializes missing recipe files, builds the local recipe image unless
+`--no-build` is passed, stages provider auth/config, and starts the agent using
+the same container boot path as `outcall agent`.
+
+Auth transfer modes:
+
+| Mode | Behavior |
+|---|---|
+| `--auth copy` | Default. Copies selected provider files into `.outcall/auth/<id>/home` and mounts that directory as `/home/node`. |
+| `--auth mount` | Mounts selected existing provider files directly from the host home directory. |
+| `--auth env-only` | Does not copy or mount files; passes matching auth environment variables only. |
+
+Use `--force-auth-copy` to refresh already-staged files. The generated
+`.outcall/.gitignore` excludes `.outcall/auth/`; keep that directory treated as
+secret material.
+
+Recommended flow:
+
+```sh
+outcall recipe init claude
+outcall recipe doctor claude
+outcall network create
+outcall recipe run claude
+```
 
 Test a rule before deploying it:
 
