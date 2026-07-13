@@ -2,9 +2,8 @@
 
 Five minutes to an isolated Claude Code or Codex container.
 
-> **Linux only.** `outcalld` manages a kernel network bridge and applies
-> nftables rules — both require Linux. macOS hosts can build the workspace
-> and run the CLI, but the daemon will not start.
+> **Linux runtime required.** On Linux, Outcall uses Docker directly. On
+> macOS, Docker Desktop provides the Linux runtime for the daemon and agents.
 
 > **Load `br_netfilter` on the host before starting the daemon**, otherwise
 > agent-to-agent isolation (T-2) is silently unenforced. See
@@ -22,29 +21,18 @@ Install the release binaries:
 curl -fsSL https://outcall.dev/install.sh | sh
 ```
 
-On Linux, the installer preloads the matching `outcalld` Docker image when
-Docker is available, so the first `outcall start` run does not depend on an
+On Linux and macOS, the installer preloads the matching `outcalld` Docker image
+when Docker is available, so the first `outcall run <recipe>` does not depend on an
 anonymous registry pull.
 
 Start with the default path:
 
 ```sh
-outcall
-outcall start
+~/.local/bin/outcall run codex
 ```
 
-Running bare `outcall` prints the recommended first command for the current
-project and host, plus the next few useful commands.
-
-If Outcall cannot infer the provider cleanly, choose one explicitly:
-
-```sh
-outcall claude
-outcall codex
-```
-
-That explicit choice also becomes the saved default recipe for the project, so
-later runs can go back to `outcall start`.
+The absolute path works before you update `PATH`; afterwards, use
+`outcall run codex` or `outcall run claude`.
 
 What these do:
 
@@ -60,8 +48,9 @@ back to env-only when only environment credentials are present.
 If the fast path stops on a prerequisite, inspect it directly:
 
 ```sh
-outcall doctor claude
-outcall doctor codex
+outcall doctor --fix claude
+outcall doctor --fix codex
+outcall doctor --fix codex
 ```
 
 If you need to split the flow up, `outcall run <recipe>` expands to:
@@ -70,28 +59,11 @@ If you need to split the flow up, `outcall run <recipe>` expands to:
 outcall init <recipe>
 outcall doctor <recipe>
 outcall recipe test <recipe>
-outcall recipe run <recipe>
+outcall run <recipe>
 ```
 
-`outcall start` uses the same flow, but only auto-selects a provider when it
-finds one clear provider signal. It prefers, in order:
-
-- a saved project default recipe from a previous explicit choice
-- project context files such as `CLAUDE.md` or `AGENTS.md`
-- Claude-only or Codex-only auth candidates on the host
-
-`outcall claude` and `outcall codex` are just direct aliases for
-`outcall run claude` and `outcall run codex`.
-
-The intermediate shortcut is:
-
-```sh
-outcall setup
-outcall start
-```
-
-If you want to pin the provider during setup, use `outcall setup claude` or
-`outcall setup codex`.
+The intermediate shortcut is `outcall setup <recipe>`. It verifies the same
+project scaffold and recipe image without launching the agent.
 
 `outcall doctor <recipe>` now checks the usual first-run failures directly:
 Linux host support, Docker daemon availability, `/tmp/outcall`, and the

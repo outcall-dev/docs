@@ -1,8 +1,8 @@
 # Installation
 
-Outcall is a Linux-only daemon. It manages a kernel network bridge and applies
-nftables rules — both require Linux. macOS hosts can build the workspace and
-run the CLI, but `outcalld` itself will not start outside Linux.
+Outcall runs its secure daemon in a Linux runtime. On Linux that is the native
+Docker runtime; on macOS it is Docker Desktop's Linux VM. The host CLI manages
+the daemon and isolated agent containers in either supported environment.
 
 ## Fast install
 
@@ -12,40 +12,36 @@ Install the release binaries:
 curl -fsSL https://outcall.dev/install.sh | sh
 ```
 
-On Linux, the installer also preloads the matching `outcalld` Docker image when
-Docker is available, so the first `outcall start` run can start from local
-release artifacts instead of relying on an initial registry pull.
+The installer verifies the SHA-256 checksum of every downloaded binary and,
+when Docker is available, the matching `outcalld` image archive before loading
+it. This avoids a first-run registry pull.
 
 Then, from the root of the project you want to isolate:
 
 ```sh
-outcall
-outcall start
+~/.local/bin/outcall run codex
 ```
 
-Running bare `outcall` prints the recommended first command for the current
-project and host.
+The absolute path works before you add `~/.local/bin` to `PATH`. After that,
+use `outcall run codex` or `outcall run claude` from the project you want to
+isolate.
 
-If Outcall cannot infer the provider cleanly, choose one explicitly:
+Use the desired recipe directly:
 
 ```sh
-outcall claude
-outcall codex
+outcall run claude
 ```
 
-`outcall start` is the shortest supported first-run path when the host only has
-one supported provider configured. It expands to the same flow as
-`outcall claude` / `outcall codex`: `outcall run <recipe>`, which scaffolds
-`.outcall/`, checks likely auth/config sources, builds the recipe image,
-starts `outcall-daemon` if needed, creates the default network if needed,
-verifies the recipe entrypoint in a smoke container, and then launches the
-real isolated agent container.
+It scaffolds `.outcall/`, checks likely auth/config sources, builds the recipe
+image, starts `outcall-daemon` if needed, creates the default network, verifies
+the recipe entrypoint in a smoke container, and then launches the isolated agent
+container.
 
 If the first run stops on a prerequisite, inspect it directly with:
 
 ```sh
-outcall doctor claude
-outcall doctor codex
+outcall doctor --fix claude
+outcall doctor --fix codex
 ```
 
 ## Requirements

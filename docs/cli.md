@@ -23,12 +23,13 @@ project and host, followed by the shortest useful onboarding commands.
 | `daemon`    | Start, stop, or inspect the outcalld daemon container. |
 | `rules`     | Hot-reload rules from disk (`outcall rules reload`). |
 | `requests`  | Review, approve, or reject agent-submitted rule requests. |
-| `recipe`    | Inspect, test, and run known agent runtime recipes. |
-| `start`     | Recommended no-brain entrypoint; auto-selects the provider when possible. |
-| `claude`    | Explicit Claude fallback for `outcall run claude`. |
-| `codex`     | Explicit Codex fallback for `outcall run codex`. |
+| `recipe`    | Inspect, initialize, and test known agent runtime recipes. |
 | `init`      | Scaffold `.outcall/` for the current project, optionally with a recipe. |
 | `doctor`    | Check first-run prerequisites, optionally with recipe-specific detail. |
+| `auth`      | Stage selected provider auth/config without launching an agent. |
+| `allow`     | Add a recipe template or exact-host grant to project rule YAML. |
+| `policy`    | Explain the effective project-local policy and default-deny behavior. |
+| `ps` / `logs` / `stop` | Manage named recipe containers without Docker commands. |
 | `setup`     | Run the first-time recipe path: init, doctor, smoke test. |
 | `run`       | Recommended first-time path: setup plus recipe launch. |
 | `ui`        | Open the operator dashboard in a browser. |
@@ -42,47 +43,21 @@ Global flag:
 ## run
 
 ```sh
-outcall run <claude|codex> [--no-build] [--auth auto|copy|mount|env-only] [--detach]
+outcall run <claude|codex> [--name NAME] [--no-build] [--auth auto|copy|mount|env-only] [--detach]
 ```
 
-This is the lower-level command behind the recommended first-run aliases
-`outcall claude` and `outcall codex`. It performs:
+This is the only agent launch command.
+It performs:
 
 ```sh
 outcall init <recipe>
 outcall doctor <recipe>
 outcall recipe test <recipe>
-outcall recipe run <recipe>
+outcall run <recipe>
 ```
 
 Use `outcall setup [recipe]` if you want the scaffold/check/smoke portion
 without launching the long-lived agent container yet.
-
-## claude / codex
-
-```sh
-outcall claude [--no-build] [--auth auto|copy|mount|env-only] [--detach]
-outcall codex  [--no-build] [--auth auto|copy|mount|env-only] [--detach]
-```
-
-These are the explicit fallbacks when `outcall start` cannot infer the provider
-cleanly. They are direct aliases for `outcall run claude` and `outcall run codex`.
-
-## start
-
-```sh
-outcall start [claude|codex] [--no-build] [--auth auto|copy|mount|env-only] [--detach]
-```
-
-This is the simplest generic entrypoint and the default first command to show
-new users. With an explicit provider, it behaves like `outcall claude` or
-`outcall codex`. Without one, Outcall inspects the usual Claude/Codex auth
-candidates and auto-selects the provider only when the project or host clearly
-matches one of them. Selection order is:
-
-1. saved project default from `outcall init <recipe>`, `outcall claude`, or `outcall codex`
-2. project context such as `CLAUDE.md`, `.claude/settings.json`, `AGENTS.md`, or `.codex/config.toml`
-3. host auth candidates
 
 ## setup
 
@@ -91,8 +66,8 @@ outcall setup [claude|codex] [--no-build] [--auth auto|copy|mount|env-only]
 ```
 
 This runs the scaffold/check/smoke sequence without launching the long-lived
-agent container. Without an explicit provider, it uses the same saved
-default/project-context/host-auth detection order as `outcall start`:
+agent container. Without an explicit provider, it uses the saved
+default/project-context/host-auth detection order:
 
 ```sh
 outcall init <recipe>
@@ -100,7 +75,7 @@ outcall doctor <recipe>
 outcall recipe test <recipe>
 ```
 
-Use `outcall start` or `outcall run <recipe>` after `setup` passes.
+Use `outcall run <recipe>` after `setup` passes.
 
 ## bridge
 
@@ -302,8 +277,8 @@ outcall init claude
 outcall init codex --force
 outcall recipe doctor claude
 outcall recipe test claude
-outcall recipe run claude
-outcall recipe run codex "inspect this repo"
+outcall run claude
+outcall run codex -- "inspect this repo"
 ```
 
 Built-in recipes:
@@ -346,8 +321,8 @@ mount only the selected auth/config paths the recipe reports.
 default network exist, and starts the agent using the same container boot path
 as `outcall agent`.
 
-For the two built-in first-run entrypoints, `outcall claude` is an alias for
-`outcall run claude` and `outcall codex` is an alias for `outcall run codex`.
+For the built-in first-run entrypoints, use `outcall run claude` or
+`outcall run codex`.
 
 Auth transfer modes:
 
@@ -366,9 +341,9 @@ Recommended flow:
 
 ```sh
 outcall init claude
-outcall doctor claude
+outcall doctor --fix claude
 outcall recipe test claude
-outcall recipe run claude
+outcall run claude
 ```
 
 ## init
@@ -399,8 +374,8 @@ Check first-run prerequisites without talking to the daemon API.
 
 ```sh
 outcall doctor
-outcall doctor claude
-outcall doctor codex
+outcall doctor --fix claude
+outcall doctor --fix codex
 ```
 
 The top-level `doctor` checks the local scaffold plus command availability.
