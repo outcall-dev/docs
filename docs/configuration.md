@@ -27,34 +27,33 @@ If port `8080` is bound on the bridge address already, pick a free port with
 `--proxy-addr 10.200.0.1:18080`. Containers then need their `HTTP_PROXY` env
 vars updated to match. Use `--no-proxy` only for direct-IP-only rule sets.
 
-### TLS interception flags (S011 — not yet implemented)
+### TLS interception (S011 — not yet implemented)
 
-> **Not yet implemented.** S011 is specified but intentionally deferred — see
-> `docs/security/threat-model.md`. The flags below are accepted by the daemon
-> CLI (they parse without error) but TLS interception is a no-op in the
-> current release — no leaf certificates are minted, no bodies are buffered,
-> and `egress.mode: intercept` is rejected at rule reload time. Do not rely
-> on these flags for enforcement.
-
-| Flag | Default | Purpose (when S011 ships) |
-|---|---|---|
-| `--ca-cert <path>` | _unset_ | PEM-encoded root CA certificate the proxy will use to sign per-host leaf certs. |
-| `--ca-key <path>` | _unset_ | PEM-encoded root CA private key. |
-| `--intercept-leaf-ttl-secs <n>` | `86400` | Validity window of generated leaf certificates. |
-| `--intercept-body-cap-bytes <n>` | `1048576` | Maximum bytes the proxy will buffer for `http.body` matching. |
+The daemon exposes no CA or interception flags in the current release. It does
+not mint leaf certificates, decrypt HTTPS, or buffer encrypted request bodies;
+`egress.mode: intercept` fails rule validation. `outcall ca init` can generate
+future-use CA material, but the daemon cannot load or use it yet. Do not install
+that CA into a trust store for current Outcall deployments.
 
 ## Capability requirements
 
 | Capability | Why |
 |---|---|
 | `NET_ADMIN` | Manage the bridge, configure interfaces, install nftables. |
+| `NET_BIND_SERVICE` | Bind the managed DNS listener on port 53. |
+| `CHOWN`, `DAC_OVERRIDE` | Linux Unix-socket transport only: assign mounted socket ownership to the invoking operator. |
 | `--network host` | Daemon must operate in the host network namespace. |
+| `--pid host` | Resolve network PIDs to managed Docker container identities. |
 | `/var/run/docker.sock` mount | Manage Docker networks; resolve PIDs to containers. |
 
-The daemon does not require `SYS_ADMIN` for current code paths (verified
-against `application/outcalld/src/bridge.rs`); some kernels are stricter
-about netlink and may need it. Add `SYS_ADMIN` only if the daemon fails
-to bring up the bridge with `EPERM`.
+The daemon does not require `SYS_ADMIN`. Docker-exec transport on macOS omits
+`CHOWN` and `DAC_OVERRIDE`; native Unix-socket transport on Linux adds them.
+A bridge-netfilter preflight failure must be fixed in the Linux runtime, not
+bypassed by broadening the daemon capability set.
+
+For local daemon development, set `OUTCALL_DAEMON_IMAGE=<local-tag>` before
+`outcall run`. Recipe-driven rules-mount restarts preserve the currently
+selected daemon image; the environment variable explicitly overrides it.
 
 ## Logging
 
@@ -80,11 +79,18 @@ Each subsystem logs under a stable target name (`bridge`, `network`,
 | `/tmp/outcall/host.sock` | Operator socket (recreated on each daemon start). |
 | `/tmp/outcall/agent.sock` | Agent socket (recreated on each daemon start). |
 
-Networks and containers **outlive the daemon**: if `outcalld` exits, the
-bridge and its nftables table are torn down, but Docker networks remain.
-When the daemon restarts, it re-attaches and re-applies the ruleset.
-During the gap, traffic on the bridge is unfiltered — design your deploys
-around this.
+Networks and containers **outlive the daemon**. During graceful shutdown,
+`outcalld` removes dynamic direct-egress grants and preserves the bridge with
+its strict base nftables policy, so managed containers remain fail closed.
+DNS, proxy, broker, and control-socket services are unavailable until the
+daemon restarts; requests that depend on them fail.
+On restart, the daemon re-attaches to the bridge, replaces the ruleset, and
+rediscovers containers by the `managed-by=outcalld` label. Use the explicit
+`outcall bridge down` command only after all managed workloads have stopped.
+The CLI creates `outcall-daemon` with Docker's `unless-stopped` restart policy,
+so Docker Engine and Docker Desktop restarts bring the control plane back
+without a manual command. `outcall daemon stop` removes the container and does
+not restart it.
 
 ## Daemon lifecycle
 

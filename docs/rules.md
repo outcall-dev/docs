@@ -152,9 +152,10 @@ traffic.
 
 ### `run`
 
-Populated when the agent shim asks for permission to run a tool, exec a
-shell command, or access a file (see `outcall-agent`'s `permissions check`
-API).
+Populated when an explicit action wrapper asks for permission. Current callers
+are the optional `outcall-agent` command wrapper and the tokenized host broker.
+It is not populated for arbitrary syscalls or ordinary commands executed
+directly inside Claude/Codex containers.
 
 | Field | Type |
 |---|---|

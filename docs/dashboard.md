@@ -1,6 +1,6 @@
 # Dashboard (S010)
 
-Outcall ships a read-only operator dashboard that gives you a live view of the
+Outcall ships an operator dashboard that gives you a live view of the
 bridge, networks, agent containers, active rules, and pending rule requests
 without memorizing CLI commands.
 
@@ -20,36 +20,27 @@ built-in TCP-to-Unix bridge.
 outcall ui
 ```
 
-Binds 127.0.0.1:8080 → the host socket, prints the URL, and opens your
-default browser. Press Ctrl-C to stop. Pass `--port 9000` to bind a
-different port, or `--no-open` if you don't want the browser launched
-automatically.
+Binds `127.0.0.1:8080`, validates browser requests, forwards them to the daemon
+socket, prints a fragment-token URL, and opens your default browser. Press
+Ctrl-C to stop. Pass `--port 9000` to use a different loopback port, or
+`--no-open` to print the URL without launching a browser.
 
-Equivalent under the hood to running `socat TCP-LISTEN:8080,reuseaddr,fork
-UNIX-CONNECT:/tmp/outcall/host.sock` — handy if you'd rather use socat
-directly:
+Do not replace this bridge with `socat`, nginx, or a generic reverse proxy.
+Those alternatives omit Outcall's session token, origin checks, request
+framing limits, and duplicate-header rejection.
 
-```bash
-socat TCP-LISTEN:8080,reuseaddr,fork UNIX-CONNECT:/tmp/outcall/host.sock
-```
+### Direct Unix-socket inspection (Linux)
 
-### Option 2 — `nginx` (for an always-on workstation)
-
-```nginx
-server {
-    listen 127.0.0.1:8080;
-    location / { proxy_pass http://unix:/tmp/outcall/host.sock:; }
-}
-```
-
-### Option 3 — `curl --unix-socket` (no browser needed)
-
-For headless inspection without spinning up a shim:
+For headless inspection on Linux without a browser:
 
 ```bash
 curl --unix-socket /tmp/outcall/host.sock http://_/api/v1/bridge
 curl --unix-socket /tmp/outcall/host.sock http://_/api/v1/containers
 ```
+
+On macOS the socket is container-local. Use `outcall bridge status`,
+`outcall ps`, or `outcall ui --no-open`; the CLI transports those requests with
+`docker exec` without exposing a host TCP API.
 
 ## What the dashboard shows
 
@@ -88,29 +79,28 @@ agent on its next heartbeat.
 
 ## Security
 
-- The dashboard inherits Unix socket file permissions (`/tmp/outcall/host.sock`
-  is `0660`, owner `root:outcall` by default). If you can read the socket,
-  you can use the dashboard — there is no separate auth layer.
-- Treat the socat/nginx shim as a privileged endpoint: bind to `127.0.0.1`,
-  not `0.0.0.0`, and don't expose port 8080 to the network.
+- The daemon API inherits Unix socket file permissions. The `outcall ui`
+  loopback bridge adds a random per-process bearer token and rejects non-local
+  Host/Origin headers; keep the printed URL private.
+- `outcall ui` binds to `127.0.0.1`. Do not replace it with a listener on
+  `0.0.0.0` or expose the operator socket through a public reverse proxy.
 - The dashboard never proxies traffic; it reads daemon state and posts
   approve/reject decisions. It cannot be used to bypass any rule.
 
 ## Platform notes
 
-- **Linux:** fully supported. The daemon needs `NET_ADMIN` and `SYS_ADMIN`
-  to manage nftables and the bridge, so run it under systemd or via
-  `outcall daemon start` (which uses Docker with the right caps).
-- **macOS (development only):** outcalld cannot run natively because it
-  needs Linux netfilter. Use a Linux VM (lima/colima/UTM) or run it inside
-  a privileged Docker container. The dashboard itself works the same once
-  the host socket is reachable.
+- **Linux:** supported through the Docker-managed daemon. It receives
+  `NET_ADMIN` and `NET_BIND_SERVICE`, plus `CHOWN` and `DAC_OVERRIDE` only for
+  native Unix-socket ownership.
+- **macOS:** supported through Docker Desktop's Linux runtime. The CLI talks to
+  the daemon with `docker exec`; no native macOS netfilter support is required.
 
 ## Known limits (v0.1)
 
 - Polling only — no WebSocket push. Slight lag between rule reload and the
   Rules view updating.
-- Desktop layout only. Mobile-responsive design is out of scope for v0.1.
+- Responsive tables and controls support narrow mobile viewports; wide tables
+  scroll within their view instead of widening the page.
 - No historical view. Once a rule request is approved/rejected, it leaves
   the queue; check `outcalld` logs for an audit trail.
 - No edit-rule UI. Rule files are managed via `rules.d/` + `outcall rules
@@ -120,7 +110,7 @@ agent on its next heartbeat.
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `curl: (7) Couldn't connect to server` against the socat shim | Daemon not running | `outcall daemon status`; if stopped, `outcall daemon start` |
+| `outcall ui` cannot reach the daemon | Daemon not running | `outcall daemon status`; if stopped, `outcall daemon start` |
 | Dashboard loads but tables are empty | No bridge / no containers yet | `outcall bridge up`, then `outcall container create --image …` |
 | `404 Not Found` on `/ui/` | Asset path mismatch | Ensure you opened `/ui/` (with trailing slash) — `/ui` 301-redirects on most setups but some shims drop the redirect |
 | Dashboard shows stale data | 5-second poll cycle | Refresh once; if still stale check the daemon socket is responding via `curl --unix-socket` |

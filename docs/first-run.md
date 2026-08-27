@@ -16,23 +16,33 @@ On macOS, install and start Docker Desktop first. Outcall runs the daemon and
 agent containers in Docker Desktop's Linux runtime. On Linux, it uses the
 native Docker runtime.
 
-## Pick authentication explicitly
+## Authenticate Claude or Codex
 
-Outcall detects a provider API key or the provider's normal local login files.
-Review and stage only the selected provider material before launching:
+Outcall distinguishes provider configuration from a portable credential. Codex
+can normally copy `~/.codex/auth.json`. Claude on Linux can copy
+`~/.claude/.credentials.json`, but a macOS Claude `/login` stays in Keychain and
+cannot authenticate a Linux container.
+
+For Claude on macOS, either start it interactively once:
 
 ```sh
-outcall auth codex
-outcall auth claude --auth env-only
+outcall run claude
+# Complete /login inside the managed container.
 ```
 
-`copy` stores only selected provider files under `.outcall/auth/`, which is
-ignored by Git and created with owner-only permissions. Env-only runs receive a
-separate writable `.outcall/home/<recipe>/` directory, also ignored by Git,
-without copying provider credentials. `mount` keeps the files on the host and
-mounts only the selected paths. For unattended use, prefer the provider's API
-key in the environment; Outcall never copies the whole home directory or reads
-browser/keychain session state.
+That writes a Linux credential into the ignored, owner-only
+`.outcall/home/claude/` directory. Later `claude -p` and detached runs reuse it.
+For unattended subscription use, run `claude setup-token` on the host and export
+`CLAUDE_CODE_OAUTH_TOKEN`. API users can export `ANTHROPIC_API_KEY` or
+`ANTHROPIC_AUTH_TOKEN`.
+
+Default `copy` mode copies only portable credential files into
+`.outcall/home/<recipe>/`. `--include-global-config` opts into bounded selected
+settings, instructions, agents, commands, or hooks; review host-only MCP and
+hook paths because macOS executables do not run in Linux. `mount` is an explicit
+read-write opt-in for the complete provider directory (`~/.claude` or
+`~/.codex`), never the complete host home. Batch and detached runs fail before
+building when no portable credential is available.
 
 ## Repair prerequisites
 
@@ -71,6 +81,9 @@ outcall ps
 outcall logs review-1 --follow
 outcall stop review-1
 ```
+
+`outcall stop` removes the stopped agent so the name can be reused. Add
+`--keep` only when you need postmortem logs or inspection.
 
 Without `--name`, containers are named from the project directory: `foobar-1`,
 `foobar-2`, and so on. The project workspace is mounted into the container;

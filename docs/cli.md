@@ -18,8 +18,7 @@ project and host, followed by the shortest useful onboarding commands.
 | `proxy`     | Inspect the HTTP proxy. |
 | `network`   | Create, list, destroy outcall-managed Docker networks. |
 | `container` | Run, inspect, stop, remove agent containers. |
-| `agent`     | Boot an AI agent container for the current project. |
-| `ca`        | Manage the TLS interception CA (init, status, bundle). |
+| `ca`        | Prepare or inspect CA state for the future TLS-interception feature. |
 | `daemon`    | Start, stop, or inspect the outcalld daemon container. |
 | `rules`     | Hot-reload rules from disk (`outcall rules reload`). |
 | `requests`  | Review, approve, or reject agent-submitted rule requests. |
@@ -29,7 +28,7 @@ project and host, followed by the shortest useful onboarding commands.
 | `auth`      | Stage selected provider auth/config without launching an agent. |
 | `allow`     | Add a recipe template or exact-host grant to project rule YAML. |
 | `policy`    | Explain the effective project-local policy and default-deny behavior. |
-| `ps` / `logs` / `stop` | Manage named recipe containers without Docker commands. |
+| `ps` / `logs` / `attach` / `stop` | Manage named recipe containers without Docker commands. |
 | `setup`     | Run the first-time recipe path: init, doctor, smoke test. |
 | `run`       | Recommended first-time path: setup plus recipe launch. |
 | `ui`        | Open the operator dashboard in a browser. |
@@ -43,26 +42,34 @@ Global flag:
 ## run
 
 ```sh
-outcall run <claude|codex> [--name NAME] [--no-build] [--auth auto|copy|mount|env-only] [--detach]
+outcall run <claude|codex> [--name NAME] [--no-build]
+            [--auth auto|copy|mount|env-only] [--include-global-config]
+            [--detach] [--keep] [-- ARGS...]
 ```
 
-This is the only agent launch command.
-It performs:
-
-```sh
-outcall init <recipe>
-outcall doctor <recipe>
-outcall recipe test <recipe>
-outcall run <recipe>
-```
+This is the only recipe agent launch command. On a new project it performs the
+same initialization, checks, image build, auth staging, daemon/network setup,
+and `--version` smoke test as `outcall setup`, then launches the agent. Once the
+project scaffold exists, it preserves that scaffold and launches through the
+same daemon-managed container API. Use `--no-build` only when the local recipe
+image already exists.
 
 Use `outcall setup [recipe]` if you want the scaffold/check/smoke portion
 without launching the long-lived agent container yet.
 
+Default selected-file staging copies only portable credentials. Add
+`--include-global-config` to copy the recipe's selected user-level settings and
+instructions in auto, copy, or env-only mode after checking that MCP/hook
+commands are valid in Linux. Mount mode already includes the complete provider
+directory.
+Argument-free `--detach` runs receive a container TTY and open stdin; reconnect
+with `outcall attach <name>` and detach with Ctrl+P, then Ctrl+Q.
+
 ## setup
 
 ```sh
-outcall setup [claude|codex] [--no-build] [--auth auto|copy|mount|env-only]
+outcall setup [claude|codex] [--no-build]
+              [--auth auto|copy|mount|env-only] [--include-global-config]
 ```
 
 This runs the scaffold/check/smoke sequence without launching the long-lived
@@ -76,6 +83,10 @@ outcall recipe test <recipe>
 ```
 
 Use `outcall run <recipe>` after `setup` passes.
+Successful attached and one-shot runs remove their stopped container so the
+lowest available `<folder>-N` name can be reused. Pass `--keep` to retain a
+completed container for `docker logs` or `docker inspect`; detached containers
+remain running until explicitly stopped.
 
 ## bridge
 
@@ -137,6 +148,23 @@ is omitted. Gateway defaults to the `.1` of the chosen subnet.
 `destroy` refuses if any containers are still attached — stop or remove the
 containers first.
 
+## Agent container lifecycle
+
+```sh
+outcall ps
+outcall inspect <name>
+outcall logs <name> [--follow]
+outcall attach <name>
+outcall stop <name> [--keep]
+```
+
+These top-level commands are the normal recipe-agent lifecycle. `inspect`
+shows environment names with every value replaced by `<redacted>`. `attach`
+resolves the daemon-managed container identity before invoking Docker, so an
+unmanaged container with a reused name cannot be selected. `stop` removes the
+stopped agent by default so its numeric name can be reused; pass `--keep` to
+retain it for logs or inspection. Low-level `container stop` never removes.
+
 ## container
 
 ```sh
@@ -149,10 +177,11 @@ outcall container remove  --name <name> [--force]
 outcall container pull    --image <image>
 ```
 
-The container `--name` is a *suffix* — the daemon prepends
-`outcall-agent-`. So `--name analyst` becomes `outcall-agent-analyst`.
+An explicit container `--name` is used exactly. If omitted, this low-level API
+generates an `outcall-<8-hex>` name; recipe runs use `<folder>-N` names instead.
 
 `stop` sends SIGTERM, waits `--timeout` seconds (default 10), then SIGKILL.
+`inspect` returns environment names with every value replaced by `<redacted>`.
 
 ## Reloading rules
 
@@ -232,40 +261,6 @@ outcall container create \
 outcall container list
 ```
 
-## agent
-
-Boot an AI agent container for the current project (S014).
-
-```sh
-outcall agent                          # Boot agent with current folder name
-outcall agent "analyze this code"      # Boot and pass command to agent
-outcall agent --name my-agent          # Custom agent name
-outcall agent --image custom:latest    # Custom Docker image
-outcall agent --network outcall-default # Attach to an outcall-managed network
-outcall agent --detach                 # Run in background
-outcall agent --list                   # List running agents
-outcall agent --stop                   # Stop agent (auto-detects name)
-outcall agent --logs --follow          # Tail agent logs
-outcall agent --init                   # Create .outcall/agent.yaml template
-```
-
-The agent mounts the current directory at `/workspace` inside the container.
-The default Docker network is `outcall-default`; create it with
-`outcall network create` before booting an agent, or pass `--network` for a
-different outcall-managed network.
-Configure per-project settings in `.outcall/agent.yaml`:
-
-```yaml
-image: custom-image:latest
-name: my-project-agent
-volumes:
-  - /host/data:/data
-env:
-  API_KEY: secret
-ports:
-  - 3000:3000
-```
-
 ## recipe
 
 Initialize and run a known agent runtime profile.
@@ -301,25 +296,28 @@ Built-in recipes:
 ```
 
 `doctor` checks whether Docker and Git are available, whether generated recipe
-files exist, and whether likely auth/context candidates are present. For Claude
-it looks for `ANTHROPIC_API_KEY`, `~/.claude`, `~/.claude.json`, `CLAUDE.md`,
-and `.claude/settings.json`. For Codex it looks for `CODEX_ACCESS_TOKEN`,
-`CODEX_API_KEY`, `~/.codex/auth.json`, `~/.codex/config.toml`,
-`~/.codex/AGENTS.md`, `AGENTS.md`, and `.codex/config.toml`.
+files exist, and whether portable credentials, optional user configuration, and
+project context are present. For Claude it checks the supported environment
+variables and `~/.claude/.credentials.json` separately from selected settings,
+hooks, `CLAUDE.md`, and `.claude/settings.json`. For Codex it checks
+`CODEX_ACCESS_TOKEN`, `CODEX_API_KEY`, `~/.codex/auth.json`, user configuration,
+`AGENTS.md`, and `.codex/config.toml`.
 
 `test` is the first-run smoke check. It initializes missing recipe files,
 builds the local image unless `--no-build` is passed, stages provider auth,
 ensures the daemon and default network exist, and runs the recipe entrypoint
 with `--version` inside a short-lived container. This is the fastest way to
-see whether the host, auth, and image are ready before starting the real agent.
+see whether the host, image, and managed runtime are ready before starting the
+real agent. It reports missing portable auth as a warning because `--version`
+does not require a credential.
 
 Recipes intentionally avoid mounting the whole host home directory. Copy or
 mount only the selected auth/config paths the recipe reports.
 
 `run` initializes missing recipe files, builds the local recipe image unless
 `--no-build` is passed, stages provider auth/config, ensures the daemon and
-default network exist, and starts the agent using the same container boot path
-as `outcall agent`.
+default network exist, and starts the agent through outcalld's managed
+container API.
 
 For the built-in first-run entrypoints, use `outcall run claude` or
 `outcall run codex`.
@@ -328,14 +326,24 @@ Auth transfer modes:
 
 | Mode | Behavior |
 |---|---|
-| `--auth auto` | Default. Uses copied provider files when recipe user paths exist; otherwise falls back to env-only. |
-| `--auth copy` | Copies selected provider files into `.outcall/auth/<id>/home` and mounts that directory as `/home/node`. |
-| `--auth mount` | Mounts selected existing provider files directly from the host home directory. |
-| `--auth env-only` | Does not copy or mount files; passes matching auth environment variables only. |
+| `--auth auto` | Default. Reuses a saved project choice; otherwise uses non-empty environment credentials, a portable credential, then an isolated project home. |
+| `--auth copy` | Copies portable credential files into `.outcall/home/<id>` and mounts it at the validated Linux home (`/home/node`) inside the container. |
+| `--auth mount` | Explicitly mounts the complete provider directory read-write (`~/.claude` plus `~/.claude.json`, or `~/.codex`). |
+| `--auth env-only` | Passes matching auth environment variables and reuses persistent `.outcall/home/<id>` state without copying host credentials. `--include-global-config` may still copy the bounded global-config allowlist. |
 
-Use `--force-auth-copy` to refresh already-staged files. The generated
-`.outcall/.gitignore` excludes `.outcall/auth/`; keep that directory treated as
-secret material.
+Selected-file staging never follows symlinks and rejects files over 16 MiB,
+more than 10,000 entries, or more than 100 MiB total. Add
+`--include-global-config` to copy the recipe's selected global
+settings/instructions, and use `--force-auth-copy` to refresh selected host
+files. The generated `.outcall/.gitignore` excludes
+`.outcall/home/` and `.outcall/auth/`; treat both as secret runtime state.
+
+On macOS, Claude's host `/login` credential is in Keychain and cannot be copied
+into Linux. Run `outcall run claude` interactively once to persist a Linux login
+in the project home, or export `CLAUDE_CODE_OAUTH_TOKEN` from
+`claude setup-token`. Batch and detached commands fail before setup/build when
+no portable credential exists; `--version`, `--help`, and provider login
+commands remain available.
 
 Recommended flow:
 
@@ -345,6 +353,29 @@ outcall doctor --fix claude
 outcall recipe test claude
 outcall run claude
 ```
+
+## host-broker
+
+The host broker exposes only resources declared in
+`.outcall/host-resources.yaml` and still asks outcalld for a rule verdict on
+every request. `outcall run` starts the correct transport automatically when
+the registry is non-empty. The manual commands are primarily for debugging:
+
+```sh
+outcall host-broker serve
+outcall host-broker serve-tcp --listen 127.0.0.1:17890
+```
+
+The Unix transport is used on Linux. Docker Desktop uses a random loopback TCP
+port reachable as `host.docker.internal`, protected by a random bearer token
+and an exact generated transport rule. The TCP command refuses non-loopback
+listeners. A host tool grant allows caller-supplied arguments, so declare a
+narrow wrapper instead of a shell or other general-purpose binary.
+
+`/v1/tool/exec` is a bounded one-shot command API. It does not transparently
+forward long-lived stdio, SSE, or Streamable HTTP MCP sessions. Install MCP
+servers in the Linux recipe image when possible, or expose a narrow host wrapper
+that performs one operation and exits.
 
 ## init
 
