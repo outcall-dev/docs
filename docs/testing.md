@@ -4,8 +4,8 @@ Outcall has three layers of automated tests:
 
 | Layer | Where | When you run it |
 |---|---|---|
-| **Unit tests** | `#[cfg(test)] mod tests` blocks inline in `outcalld/src/**/*.rs` | every `cargo test` |
-| **Integration tests** | `outcalld/tests/*.rs` (real syscalls, root + Linux required) | every `cargo test` if you have the caps |
+| **Unit and binary tests** | `src/**/*.rs`, `outcall/src/main_tests.rs`, and crate-local test modules | every `cargo test` |
+| **Integration tests** | `outcall*/tests/*.rs` (portable plus Linux/privileged suites) | every `cargo test`; privileged cases are explicitly ignored |
 | **End-to-end harness** | `Makefile` + `scripts/e2e/tests/*.sh` (Docker-based) | `make test` / `make test-e2e` |
 
 This guide walks each layer in order. The first two are what most people
@@ -18,27 +18,18 @@ Run the whole workspace's tests from `application/`:
 
 ```sh
 cd application
-cargo test --workspace --all-targets
+cargo test --workspace --all-targets --locked
 ```
 
-Today there are **124 unit tests** across the workspace. They cover (most-
-to-least populous):
+The portable macOS all-target run currently executes **184 non-ignored
+tests**. Linux executes additional daemon modules and target-gated tests. The
+suite covers API serialization, CLI parsing and first-run behavior, rules,
+policy editing, recipes, host-resource boundaries, the local UI bridge, and
+daemon subsystems.
 
-| File | Tests | What's covered |
-|---|---|---|
-| `outcalld/src/rules/engine.rs` | 58 | CEL evaluation, reload, rule priority, dynamic merge, agent.name context |
-| `outcalld/src/proxy/mod.rs` | 12 | SNI extraction, host:port parsing, request line parsing, CRLF detection |
-| `outcalld/src/network/mod.rs` | 11 | Subnet allocation, CIDR validation |
-| `outcalld/src/agent_api/mod.rs` | 7 | Agent permission-check protocol, SO_PEERCRED identity |
-| `outcalld/src/docker/mod.rs` | 7 | Docker network create/destroy paths |
-| `outcalld/src/dynamic/mod.rs` | 5 | Dynamic rule merge into the active set |
-| `outcall-agent/src/main.rs` | 4 | Tool-invocation parsing (bash, fetch, file_read) |
-| `outcalld/src/dns/mod.rs` | 3 | DNS filter happy path + cache |
-| `outcall-ui/src/lib.rs` | 2 | UI types |
-| `outcalld/src/rules/model.rs` | 1 | Rule YAML deserialization (incl. `egress.mode: direct_ip`)
-
-Unit tests are pure-Rust. They run on macOS, Linux, and CI without any
-capabilities, sockets, or Docker.
+Most non-ignored tests need no privileges. Some portable tests create
+loopback TCP or Unix sockets. Linux-only tests that require network
+administration are marked `#[ignore]` and run in the privileged CI jobs.
 
 ### Running a subset
 
@@ -63,10 +54,11 @@ You don't have to set up a runtime yourself.
 
 ## Integration tests (`cargo test --test ...`)
 
-Integration tests live in `outcalld/tests/*.rs` — separate files, compiled
-against the public crate API. They exercise real syscalls.
+Integration tests live in `outcall/tests/`, `outcall-api/tests/`, and
+`outcalld/tests/`. They are separate test binaries and exercise public APIs,
+CLI behavior, sockets, and real syscalls as appropriate.
 
-Today there are **11** integration test files:
+`outcalld/tests/` currently contains **10** integration test files:
 
 | File | What it exercises | Requirements |
 |---|---|---|
@@ -78,9 +70,8 @@ Today there are **11** integration test files:
 | `proxy_dns_integration.rs` | DNS filter + proxy interaction | outcalld + bridge up |
 | `dynamic_rules_integration.rs` | Dynamic rule insert + flush | outcalld + bridge up |
 | `example_rules_validation.rs` | Validates the shipped example rulesets | None |
-| `intercept_e2e.rs` | TLS interception with generated CA | Linux |
-| `intercept_logging.rs` | No sensitive data in structured logs | Linux |
-| `mixed_modes_e2e.rs` | proxy/direct_ip/intercept in one ruleset | Linux |
+| `intercept_e2e.rs` | Rejects intercept rules without a CA; verifies non-intercept startup | Linux + root |
+| `mixed_modes_e2e.rs` | Mixed-mode behavior for currently implemented egress modes | Linux + root |
 
 The bridge test needs Linux and `CAP_NET_ADMIN` (or root):
 
@@ -88,31 +79,35 @@ The bridge test needs Linux and `CAP_NET_ADMIN` (or root):
 sudo cargo test -p outcalld --test bridge_integration -- --nocapture
 ```
 
-On macOS the test is gated behind `#![cfg(target_os = "linux")]` and is
-silently skipped.
+On macOS, Linux-gated files compile to zero tests. Privileged tests are also
+ignored during the ordinary Linux run and execute in dedicated CI jobs.
 
 > **Want to write more?** Drop a new `.rs` file in `outcalld/tests/` and
 > `cargo test` picks it up automatically. See S012 for gaps in coverage.
 
 ## Continuous integration
 
-`application/.github/workflows/ci.yml` runs four jobs on every push and PR
-to `main`:
+`application/.github/workflows/ci.yml` runs the following job groups on pushes
+and pull requests to `main`:
 
-| Job | Command | What fails it |
+| Job group | Command or scope | What fails it |
 |---|---|---|
 | `check` | `cargo check --workspace --all-targets` | compilation error |
-| `test` | `cargo test --workspace --all-targets` | a unit or integration test fails |
+| `test-unit`, `test-integration` | portable unit/binary and integration suites | any non-ignored test failure |
+| `test-privileged-sudo`, `test-privileged-docker` | ignored Linux integration suites with required capabilities | privileged bridge/proxy/runtime failure |
+| `installer-smoke` | local release install plus Claude and Codex `--version` runs | packaging or first-run failure |
+| `secure-install-runtime` | local install, both recipes, isolation/profile scripts, netfilter fail-closed test | runtime bootstrap or security regression |
+| `coverage` | `make coverage` | tests fail or workspace line coverage drops below 50% |
+| `spec-traceability` | `make spec-check` | an S000-S015 implementation/test mapping is missing or stale |
 | `fmt` | `cargo fmt --all -- --check` | formatting drift |
 | `clippy` | `cargo clippy --workspace --all-targets -- -D warnings` | any new clippy warning |
+| `audit`, `deny`, `unsafe-policy` | dependency and first-party safety policy | advisory, license, ban, or unsafe-policy violation |
 
 `-- -D warnings` on clippy is strict: a single new warning is treated as a
 compilation error. Keep new code lint-clean.
 
-> CI runs on `ubuntu-latest`, so the Linux-only integration test in
-> `outcalld/tests/bridge_integration.rs` runs there but is gated by a
-> root check. By default the test exits clean if it isn't running as
-> root, so on a stock GitHub runner it's effectively a no-op.
+The ordinary jobs do not imply privileged coverage. The sudo and Docker jobs
+explicitly run ignored tests with the required Linux capabilities.
 
 ## Code coverage
 
@@ -121,21 +116,17 @@ source-based coverage to produce per-file line coverage:
 
 ```sh
 cargo install cargo-llvm-cov
-cargo install cargo-nextest    # optional but faster
 
 cd application
 
-# Plain text summary
-cargo llvm-cov --workspace --all-targets
+# Run tests, write LCOV, and enforce the current CI floor
+make coverage
 
 # Per-file HTML report (open target/llvm-cov/html/index.html)
-cargo llvm-cov --workspace --all-targets --html
+cargo llvm-cov --workspace --all-targets --locked --html
 
 # Just the daemon, including its integration test
-cargo llvm-cov -p outcalld
-
-# CI-friendly: emit lcov for upload
-cargo llvm-cov --workspace --all-targets --lcov --output-path lcov.info
+cargo llvm-cov -p outcalld --all-targets --locked
 ```
 
 `cargo llvm-cov` recompiles with `-C instrument-coverage` then runs the
@@ -155,9 +146,9 @@ async glue that is hard to unit-test. Aim for:
 | `outcalld/proxy/` (handle_*) | not unit-test territory | Use integration tests (S011 names a few). |
 | `outcalld/network/`, `outcalld/dns/`, `outcalld/docker/` | covered via integration | Wire them into `tests/*.rs` rather than mocking everything. |
 
-Don't chase a single workspace-wide percentage — the meaningful number is
-"the parsers and the rule engine are well-covered, and every subsystem
-has at least one integration test that proves the wiring works".
+CI uses a 50% workspace line floor as a regression guard and uploads
+`target/coverage/lcov.info`. It does not replace the higher subsystem targets
+in S012 or the requirement for real integration tests at trust boundaries.
 
 ## End-to-end harness (`make test` / `make test-e2e`)
 

@@ -5,10 +5,11 @@ Five minutes to an isolated Claude Code or Codex container.
 > **Linux runtime required.** On Linux, Outcall uses Docker directly. On
 > macOS, Docker Desktop provides the Linux runtime for the daemon and agents.
 
-> **Load `br_netfilter` on the host before starting the daemon**, otherwise
-> agent-to-agent isolation (T-2) is silently unenforced. See
+> **Bridge netfilter is mandatory for secure unattended mode.** `outcall run`
+> checks it inside the effective Linux runtime and fails closed. On native
+> Linux, configure `br_netfilter` on the host. On macOS, Docker Desktop owns
+> the Linux kernel; do not run `modprobe` on macOS. See
 > [Installation → Kernel prerequisite](installation.md#kernel-prerequisite--br_netfilter).
-> Short form: `sudo modprobe br_netfilter && sudo sysctl -w net.bridge.bridge-nf-call-iptables=1`.
 
 ## Fast path: Claude Code or Codex
 
@@ -41,15 +42,31 @@ What these do:
   image, ensure the daemon and default network exist, run a smoke container
   with the recipe entrypoint, and then start the isolated agent container.
 
-Recipes intentionally avoid mounting your whole home directory. By default they
-auto-select copied provider auth/config paths when recipe files exist, and fall
-back to env-only when only environment credentials are present.
+Recipes never mount your whole home directory. Auto mode reuses a saved project
+choice, uses non-empty provider environment credentials when present, and
+otherwise copies only the portable credential into
+`.outcall/home/<recipe>/`. Pass `--include-global-config` to additionally copy
+the bounded recipe allowlist of global instructions/settings after reviewing
+host-only MCP and hook commands.
+
+On macOS, Claude's host `/login` is stored in Keychain and is not a portable
+Linux credential. Run `outcall run claude` once without agent arguments and
+complete `/login` inside the container, or generate a setup token on the host:
+
+```sh
+claude setup-token
+export CLAUDE_CODE_OAUTH_TOKEN=your-token
+outcall run claude -- -p "Say hi"
+```
+
+An unattended or detached command with no portable credential fails before an
+image build. `--auth mount` is an explicit read-write opt-in for the complete
+provider directory when selected copying is insufficient.
 
 If the fast path stops on a prerequisite, inspect it directly:
 
 ```sh
 outcall doctor --fix claude
-outcall doctor --fix codex
 outcall doctor --fix codex
 ```
 
@@ -71,21 +88,14 @@ Linux host support, Docker daemon availability, `/tmp/outcall`, and the
 
 ## Manual path
 
-If you want to understand or operate Outcall below the recipe layer, use the
-manual operator flow below.
+If you want to understand or operate Outcall below the recipe layer on a Linux
+host, use the manual operator flow below. The recipe flow is the supported
+cross-platform path.
 
 ## 1. Start the daemon
 
 ```sh
-docker run -d --rm \
-  --name outcall-daemon \
-  --network host \
-  --cap-add NET_ADMIN \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -v /tmp/outcall:/tmp/outcall \
-  -v /etc/outcall:/etc/outcall \
-  ghcr.io/outcall-dev/outcalld:latest \
-  --bridge outcall0
+outcall daemon start
 ```
 
 Verify the bridge is up and nftables rules are active:

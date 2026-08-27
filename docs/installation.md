@@ -37,6 +37,12 @@ image, starts `outcall-daemon` if needed, creates the default network, verifies
 the recipe entrypoint in a smoke container, and then launches the isolated agent
 container.
 
+Claude users on macOS must authenticate the Linux runtime separately because a
+host `/login` lives in Keychain. Start `outcall run claude` interactively once
+and complete `/login`, or export `CLAUDE_CODE_OAUTH_TOKEN` after running
+`claude setup-token` on the host. Unauthenticated batch/detached runs stop
+before building.
+
 If the first run stops on a prerequisite, inspect it directly with:
 
 ```sh
@@ -48,11 +54,11 @@ outcall doctor --fix codex
 
 | Requirement | Why |
 |---|---|
-| Linux kernel ≥ 5.10 | nftables, network bridge, netlink |
-| Docker ≥ 20.10 | Container management API |
-| `nft` binary | nftables ruleset application |
+| Docker ≥ 20.10 with a Linux runtime | Runs the daemon and agent containers |
+| Linux kernel ≥ 5.10 in that runtime | nftables, network bridge, netlink |
 | Rust toolchain (build only) | Cargo workspace |
-| `NET_ADMIN` capability | Bridge + nftables management |
+| `NET_ADMIN` on the daemon container | Bridge + nftables management |
+| `NET_BIND_SERVICE` on the daemon container | DNS listener on port 53 |
 
 The daemon does not need root if it has the capabilities above. In practice,
 running it as a Docker container with `--cap-add` and `--network host` is the
@@ -66,9 +72,12 @@ module is loaded and `net.bridge.bridge-nf-call-iptables=1`. Without it,
 two containers on the same bridge can reach each other directly at L2 and
 T-2 silently fails.
 
-The daemon attempts to flip the sysctl on startup, but loading the module
-itself requires `CAP_SYS_MODULE` — which the recommended container deploy
-does not grant. **Load the module on the host before starting the daemon:**
+`outcall run` checks both bridge netfilter values inside the effective Linux
+runtime and refuses secure unattended mode unless both are `1`. It does not
+silently downgrade the isolation claim.
+
+On a native Linux Docker host, load and persist the module before starting the
+daemon:
 
 ```sh
 # One-shot for the current boot
@@ -91,35 +100,34 @@ lsmod | grep br_netfilter
 cat /proc/sys/net/bridge/bridge-nf-call-iptables   # → 1
 ```
 
-If you cannot enable `br_netfilter` (locked-down kernel, hardened host),
-treat T-2 as out of scope and put each agent on its own outcall-managed
-network — bridge separation gives you isolation without relying on FORWARD.
+On macOS, do not run `modprobe` on the macOS host. Docker Desktop owns the
+Linux kernel; `outcall doctor` and `outcall run` inspect that runtime from the
+daemon container. If the values are not enforceable, fix or restart Docker
+Desktop rather than bypassing the preflight.
+
+If the Linux runtime cannot enforce bridge netfilter, Outcall does not support
+secure unattended mode on that runtime.
 
 ## Manual daemon launch
 
 ```sh
-docker run -d --rm \
-  --name outcall-daemon \
-  --network host \
-  --cap-add NET_ADMIN \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -v /tmp/outcall:/tmp/outcall \
-  -v /etc/outcall:/etc/outcall \
-  ghcr.io/outcall-dev/outcalld:latest \
-  --bridge outcall0
+outcall daemon start
+outcall daemon status
 ```
 
 The image contains `outcalld`, `outcall`, and `outcall-agent` on `PATH`.
 For local development you can still build the debug image from source with
 `docker build -f Dockerfile.test -t outcall-daemon .`.
 
-Required mounts:
+The managed launcher applies:
 
-| Mount | Purpose |
+| Runtime control | Purpose |
 |---|---|
-| `/var/run/docker.sock` | Manage Docker networks, look up containers by PID |
-| `/tmp/outcall` | Unix sockets for host CLI and agent shim |
-| `/etc/outcall` | Rule files and persisted state |
+| `--cap-drop ALL`, then required capabilities only | Least-privilege bridge, DNS, and socket operation |
+| Read-only root + bounded `/tmp` tmpfs | Prevent persistent image mutation |
+| Host network/PID namespaces | Enforce the bridge and resolve managed peer identity |
+| Docker socket, project rules, and state volume | Container management, active policy, persistence |
+| `unless-stopped` restart policy | Restore the control plane after Docker restarts |
 
 ## Install from source
 
@@ -134,8 +142,9 @@ sudo install -m 0755 target/release/outcall  /usr/local/bin/outcall
 sudo install -m 0755 target/release/outcall-agent /usr/local/bin/outcall-agent
 ```
 
-A systemd unit, sysctl knobs, and capability defaults will ship with a future
-package release; for now run the daemon under your service manager of choice.
+The supported operational path is still the Docker-managed daemon. A native
+`outcalld` binary is included for development and image construction, not as
+the default macOS runtime.
 
 ## Verify the install
 
@@ -145,10 +154,11 @@ outcall  --version
 outcall-agent --version
 ```
 
-Then start the daemon and check the bridge is up:
+Then let the CLI start the daemon container and check the bridge:
 
 ```sh
-sudo outcalld --bridge outcall0 &
+outcall daemon start
+outcall daemon status
 outcall bridge status
 # Bridge:    outcall0
 # Status:    up
@@ -156,9 +166,9 @@ outcall bridge status
 # nftables:  active
 ```
 
-If the CLI reports `cannot connect to outcalld at … — is it running?`,
-check the socket path (`/tmp/outcall/host.sock`) and the daemon's
-permission to bind it.
+If the CLI cannot reach the daemon, run `outcall daemon logs` and
+`outcall doctor`. On Linux, also inspect `/tmp/outcall/host.sock`; on macOS the
+CLI reaches the container-local socket through Docker exec.
 
 ## Next steps
 
